@@ -1,0 +1,60 @@
+# Praxeology in Lean 4
+
+A machine-verified formalization of the Hilbert-style axiomatization of praxeology accompanying
+
+> Komendarczyk, R., Block, W., Levendis, J., and Tipler, F. *An Axiomatization of Praxeology — Foundations: The Base System and Its Derived Theorems.* Manuscript, 2026.
+
+This repository contains the Lean 4 companion to the paper. The single file [`Praxeology.lean`](Praxeology.lean) encodes the paper's praxeological signature as a Lean type class, instantiates it with a concrete three-period Robinson Crusoe model, and verifies — by exhaustive case analysis carried out by Lean's type checker — that every base axiom holds on that model. Acceptance of the `crusoeModel : Praxeology` instance is therefore a constructive consistency proof of the base theory \(T_{prx}\).
+
+The file additionally verifies the production-enrichment Order hierarchy (\(T_{prx} + E_5\)) and the corrected Option-B′ form of the diminishing-marginal-utility theorem together with its structure-preservation corollary.
+
+## What this file verifies
+
+- **Base layer (\(T_{prx}\)):** sorts (Actor, Action, End, Thing, Time), primitive relations, axioms T1–T4 (time order), P1–P5 (incidence), C1 (choice).
+- **Derived theorems on the Crusoe model:** asymmetry of revealed preference, opportunity cost.
+- **Production enrichment (\(E_5\)):** the higher-order goods hierarchy verified via the `Order` inductive predicate; `CrusoeOrder_total` shows every thing has a finite Order (Plant/Fish/Tuna at order 1, Net/Boat at order 2, Wood at order 3).
+- **(MU)-enrichment:** the new sort `Good`, predicates `UnitOf`, `Allot`, `Pref`, the load-bearing axioms (O3 transitivity, asymmetry, MU0 functionality, MU4 top-segment), and the diminishing-marginal-utility theorem `PraxeologyMU.DMU` plus its structure-preservation corollary `PraxeologyMU.DMU_structure`.
+
+The file is **self-contained**: no Mathlib, no external imports, only Lean 4 core. If it compiles cleanly, every theorem and every axiom of the Crusoe model is verified.
+
+## How to run it
+
+### Web playground (no install needed)
+
+1. Open <https://live.lean-lang.org>
+2. Paste the entire contents of [`Praxeology.lean`](Praxeology.lean)
+3. Wait ~30 seconds for compilation
+4. Errors (if any) appear underlined and in the right-hand panel; no errors means everything verified
+
+### Local install
+
+1. Install Lean 4 from <https://docs.lean-lang.org/lean4/doc/quickstart.html> (or use [`elan`](https://github.com/leanprover/elan))
+2. Install the `lean4` extension in VS Code
+3. Clone this repository and open `Praxeology.lean` in VS Code — the Lean Infoview shows the proof state as you click around
+4. Or from the command line: `lean Praxeology.lean` (no output = all proofs succeeded)
+
+This repository pins a known-working Lean version via [`lean-toolchain`](lean-toolchain); `elan` will fetch the correct version automatically.
+
+## Citation
+
+If you use this formalization in academic work, please cite the accompanying paper:
+
+```bibtex
+@unpublished{Komendarczyk2026Praxeology,
+  author       = {Komendarczyk, Rafa{\l} and Block, Walter and Levendis, John and Tipler, Frank},
+  title        = {An Axiomatization of Praxeology --- Foundations: The Base System and Its Derived Theorems},
+  year         = {2026},
+  note         = {Lean~4 companion: \url{https://github.com/rafkom72/praxeology-lean}}
+}
+```
+
+## License
+
+The Lean code in this repository is released under the MIT License — see [`LICENSE`](LICENSE).
+
+## Authors
+
+- Rafał Komendarczyk
+- Walter Block
+- John Levendis
+- Frank Tipler
