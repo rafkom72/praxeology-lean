@@ -54,7 +54,9 @@ The Lean code in this repository is released under the MIT License — see [`LIC
 
 ## Authors
 
-- Rafał Komendarczyk
-- Walter Block
-- John Levendis
-- Frank Tipler
+- **Rafał Komendarczyk** — Tulane University, Department of Mathematics
+- **Walter Block** — Loyola University New Orleans, J.A. Butt College of Business
+- **John Levendis** — Tulane University, Connolly Alexander Institute for Data Science (CAIDS)
+- **Frank Tipler** — Tulane University, Department of Mathematics
+
+*(Postal addresses to be added.)*
