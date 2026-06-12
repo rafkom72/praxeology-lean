@@ -6,14 +6,15 @@ A machine-verified formalization of the Hilbert-style axiomatization of praxeolo
 
 This repository contains the Lean 4 companion to the paper. The single file [`Praxeology.lean`](Praxeology.lean) encodes the paper's praxeological signature as a Lean type class, instantiates it with a concrete three-period Robinson Crusoe model, and verifies — by exhaustive case analysis carried out by Lean's type checker — that every base axiom holds on that model. Acceptance of the `crusoeModel : Praxeology` instance is therefore a constructive consistency proof of the base theory \(T_{prx}\).
 
-The file additionally verifies the production-enrichment Order hierarchy (\(T_{prx} + E_5\)) and the corrected Option-B′ form of the diminishing-marginal-utility theorem together with its structure-preservation corollary.
+The file additionally verifies the production-enrichment Order hierarchy (\(T_{prx} + E_5\)) and the diminishing-marginal-utility theorem — in the paper's tightened form, where the reduced marginal end \(E^*\) is derived rather than assumed — together with its structure-preservation corollary, and instantiates the (MU)-axioms on the paper's two-good water/fish allotment schedule.
 
 ## What this file verifies
 
 - **Base layer (\(T_{prx}\)):** sorts (Actor, Action, End, Thing, Time), primitive relations, axioms T1–T4 (time order), P1–P5 (incidence), C1 (choice).
 - **Derived theorems on the Crusoe model:** asymmetry of revealed preference, opportunity cost.
 - **Production enrichment (\(E_5\)):** the higher-order goods hierarchy verified via the `Order` inductive predicate; `CrusoeOrder_total` shows every thing has a finite Order (Plant/Fish/Tuna at order 1, Net/Boat at order 2, Wood at order 3).
-- **(MU)-enrichment:** the new sort `Good`, predicates `UnitOf`, `Allot`, `Pref`, the load-bearing axioms (O3 transitivity, asymmetry, MU0 functionality, MU4 top-segment), and the diminishing-marginal-utility theorem `PraxeologyMU.DMU` plus its structure-preservation corollary `PraxeologyMU.DMU_structure`.
+- **(MU)-enrichment:** the new sort `Good`, predicates `UnitOf`, `Allot`, `Pref`, the load-bearing axioms (O2 menu-comparability, O3 transitivity, asymmetry, both halves of MU0, and MU4 top-segment in its corrected form, relativized to the good's serviceable ends), the lemma `served_choice_relevant`, and the diminishing-marginal-utility theorem `PraxeologyMU.DMU` (hypotheses: uniqueness, marginality, non-emptiness of the reduced supply; the reduced marginal end is derived) plus its structure-preservation corollary `PraxeologyMU.DMU_structure`.
+- **Two-good satisfiability witness:** `waterFishModel : PraxeologyMU` realizes the paper's water/fish allotment schedule, in which two goods alternate down a single value scale — a model the unrelativized MU4 excluded (an `example` verifies the old axiom fails on it), with a worked application of `DMU` at water's marginal end.
 
 The file is **self-contained**: no Mathlib, no external imports, only Lean 4 core. If it compiles cleanly, every theorem and every axiom of the Crusoe model is verified.
 

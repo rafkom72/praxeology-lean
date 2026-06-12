@@ -55,18 +55,26 @@ enrichment) on this model.
 
 Sections 8–10 add the (MU)-enrichment of the Foundations paper
 §3.2: the new sort `Good`, the predicates `UnitOf`, `Allot`, and
-`Pref`, and the axioms (O3) `Pref_trans`, asymmetry `Pref_asymm`,
-the functionality half of (MU0), and (MU4) top-segment.  Then the
-diminishing-marginal-utility theorem (`thm:DMU` of the Foundations
-paper §3.2, in its corrected Option-B' form with hypotheses
-(i)/(ii)/(iii)) and its structure-preservation corollary
-(`cor:dmu_structure`) are stated and machine-verified, mirroring
-Steps 1–2 of the appendix proof `app:dmu_proof`.
+`Pref`, the order axioms (O2)/(O3) `Pref_comp`/`Pref_trans` with
+asymmetry `Pref_asymm`, both halves of (MU0), and (MU4)
+top-segment — in its corrected form, relativized to the good's
+*serviceable* ends.  Then the diminishing-marginal-utility
+theorem (`thm:DMU` of the Foundations paper §3.2) and its
+structure-preservation corollary (`cor:dmu_structure`) are
+stated and machine-verified, mirroring the appendix proof
+`app:dmu_proof`.
+
+Section 11 adds a worked (MU)-instance: the two-good water/fish
+allotment schedule from the Crusoe box accompanying (MU4) in the
+paper, in which two goods alternate down a single value scale.
+Lean's acceptance of `waterFishModel` proves the relativized
+(MU4) admits this multi-good case, and an `example` verifies
+that the old *unrelativized* form of (MU4) fails on it — the
+reason the axiom had to be corrected.
 
 Further enrichments — ownership, exchange, monetary calculation,
-the transition map, and a worked Crusoe (MU)-instance with concrete
-Good/UnitOf/Allot/Pref structure — are deferred to future Lean
-stages, paralleling the future-research directions sketched in §5
+and the transition map — are deferred to future Lean stages,
+paralleling the future-research directions sketched in §5
 of the Foundations paper.
 -/
 
@@ -126,14 +134,20 @@ class Praxeology where
 -- SECTION 2.  Revealed Preference  (definition, not axiom)
 ----------------------------------------------------------------
 
-/-- Following Mises, preference is **defined** in terms of choice:
-    `RevPref a t E F` says actor `a` reveals a preference for end
-    `E` over end `F` at time `t` because `a` chose an action whose
-    end is `E` while an action whose end is `F` was simultaneously
-    available. -/
+/-- The *revealed-preference relation* (`def:revpref` of the
+    Foundations paper): `RevPref a t E F` says actor `a` puts end
+    `E` over end `F` on record at time `t` — `a` chose an action
+    whose end is `E` while an action whose end is the *different*
+    end `F` was simultaneously available.  The leading `E ≠ F`
+    clause excludes the degenerate self-revelation that means-ends
+    multiplicity would otherwise generate (two available actions
+    sharing one end).  Under the paper's redesign the record is
+    *defined* from choice, while the preference order itself is a
+    primitive grounded in the record by axiom (O0) — see
+    `PraxeologyFull` below. -/
 def Praxeology.RevPref [P : Praxeology]
     (a : P.Actor) (t : P.Time) (E F : P.EndE) : Prop :=
-  ∃ α β : P.Action,
+  E ≠ F ∧ ∃ α β : P.Action,
     P.Acts a α t ∧ P.Avail a β t ∧ α ≠ β ∧
     P.EndOf α E ∧ P.EndOf β F
 
@@ -175,19 +189,23 @@ variable [P : Praxeology]
 theorem revPref_eq_of_both
     (a : P.Actor) (t : P.Time) (E F : P.EndE)
     (h₁ : RevPref a t E F) (h₂ : RevPref a t F E) : E = F := by
-  obtain ⟨α₁, _, hα₁_acts, _, _, hα₁_E, _⟩ := h₁
-  obtain ⟨α₂, _, hα₂_acts, _, _, hα₂_F, _⟩ := h₂
+  obtain ⟨_, α₁, _, hα₁_acts, _, _, hα₁_E, _⟩ := h₁
+  obtain ⟨_, α₂, _, hα₂_acts, _, _, hα₂_F, _⟩ := h₂
   have heq : α₁ = α₂ := P.C1 a t α₁ α₂ hα₁_acts hα₂_acts
   rw [heq] at hα₁_E
   exact P.P4 α₂ E F hα₁_E hα₂_F
 
-/-- **Asymmetry of revealed preference (Proposition 2.3).**
-    For distinct ends, revealing `E ≻ F` rules out `F ≻ E`. -/
+/-- **Asymmetry of revealed preference (`thm:asymm`).**  Valid
+    without restriction: the `E ≠ F` clause of the definition
+    makes the reflexive instance vacuous, so — unlike the
+    pre-redesign form — no distinctness hypothesis is needed.
+    A single moment of conduct cannot put contradictory pairs on
+    record. -/
 theorem revPref_asymm
     (a : P.Actor) (t : P.Time) (E F : P.EndE)
-    (h_ne : E ≠ F) (h : RevPref a t E F) : ¬ RevPref a t F E := by
+    (h : RevPref a t E F) : ¬ RevPref a t F E := by
   intro h'
-  exact h_ne (revPref_eq_of_both a t E F h h')
+  exact h.1 (revPref_eq_of_both a t E F h h')
 
 /-- **Existence of opportunity cost (Proposition 2.4).**
     If actor `a` performs some action `α` at time `t`, and a
@@ -458,17 +476,16 @@ theorem CrusoeOrder_total : ∀ x : CrusoeThing,
     (whose end is Subsist) was available.  -/
 example :
     @Praxeology.RevPref crusoeModel crusoe t0 capital subsist :=
-  ⟨buildNet, forage, trivial, trivial,
+  ⟨(by intro h; cases h), buildNet, forage, trivial, trivial,
    (by intro h; cases h), trivial, trivial⟩
 
 /-- Crusoe does NOT reveal `Subsist ≻ Capital` at t0
     (asymmetry of revealed preference applied to the model above). -/
 example :
-    ¬ @Praxeology.RevPref crusoeModel crusoe t0 subsist capital := by
-  apply @Praxeology.revPref_asymm crusoeModel crusoe t0 capital subsist
-  · intro h; cases h
-  · exact ⟨buildNet, forage, trivial, trivial,
-           (by intro h; cases h), trivial, trivial⟩
+    ¬ @Praxeology.RevPref crusoeModel crusoe t0 subsist capital :=
+  @Praxeology.revPref_asymm crusoeModel crusoe t0 capital subsist
+    ⟨(by intro h; cases h), buildNet, forage, trivial, trivial,
+     (by intro h; cases h), trivial, trivial⟩
 
 /-- At t0, Forage is a foregone alternative: Crusoe could have
     foraged but chose BuildNet instead. -/
@@ -487,7 +504,7 @@ example :
     immediate consumption. -/
 example :
     @Praxeology.RevPref crusoeModel crusoe t1 capital shoreCatch :=
-  ⟨buildBoat, shoreFish, trivial, trivial,
+  ⟨(by intro h; cases h), buildBoat, shoreFish, trivial, trivial,
    (by intro h; cases h), trivial, trivial⟩
 
 /-- At t2, Crusoe reveals `DeepCatch ≻ Capital`: he chose
@@ -497,7 +514,7 @@ example :
     further deepening. -/
 example :
     @Praxeology.RevPref crusoeModel crusoe t2 deepCatch capital :=
-  ⟨deepSeaFish, buildBoat, trivial, trivial,
+  ⟨(by intro h; cases h), deepSeaFish, buildBoat, trivial, trivial,
    (by intro h; cases h), trivial, trivial⟩
 
 /-- E5 sanity: Wood is a 3rd-order good in the Crusoe instance.
@@ -528,27 +545,54 @@ example : @Praxeology.Order crusoeModel wood 3 :=
 
     Axioms encoded here (the subset load-bearing for DMU and
     its corollary):
+      * `Pref_comp`   : (O2) menu-comparability --- any two
+                        distinct choice-relevant ends are
+                        comparable.  Together with finiteness of
+                        the choice menu (`rem:finiteness`) it
+                        turns non-emptiness of the reduced served
+                        set into existence and uniqueness of its
+                        marginal end (Step 2 of `app:dmu_proof`).
       * `Pref_trans`  : (O3) transitivity of preference.
       * `Pref_asymm`  : strict-order convention; together with
                         transitivity gives irreflexivity.
       * `MU0_func`    : functionality half of (MU0) ---
                         each unit allots to at most one end.
+      * `MU0_feas`    : feasibility half of (MU0) --- only
+                        feasible cells are populated: an allotted
+                        unit's good can serve the end (the
+                        right-hand side is `Serviceable`,
+                        inlined).  Underwrites
+                        `lem:served_choice_relevant`.
       * `MU4_top`     : (MU4) preference-respecting allocation
-                        (the served set is a top-segment of
-                        the choice menu under `Pref`).
+                        (the served set is a top-segment of the
+                        *g-serviceable* choice-relevant ends
+                        under `Pref`).  The serviceability
+                        qualifier confines the requirement to
+                        ends within the good's reach: water
+                        allotted to washing is not faulted
+                        because hunger --- an end water cannot
+                        serve --- ranks higher and goes unserved
+                        by water.  Without the qualifier, any
+                        model in which two goods alternate down
+                        a single value scale would be excluded
+                        outright (see `waterFishModel` below).
 
-    The remaining (MU)-axioms (the feasibility half of MU0,
-    (MU2) menu-level fungibility, (MU3*) scarcity awareness)
-    are not invoked by the theorem or its corollary and are
-    omitted here.  (MU2) and (MU3*) are semantic and
-    non-vacuity premises respectively; landing them in Lean is
-    a routine extension. -/
+    The remaining (MU)-axioms ((MU2) menu-level fungibility,
+    (MU3) scarcity awareness) are not invoked by the theorem or
+    its corollary and are omitted here.  (MU2) and (MU3) are
+    semantic and non-vacuity premises respectively; landing them
+    in Lean is a routine extension. -/
 class PraxeologyMU extends Praxeology where
   Good      : Type
   UnitOf    : Thing → Good → Prop
   Allot     : Actor → Time → Thing → EndE → Prop
   Pref      : Actor → Time → EndE → EndE → Prop
 
+  Pref_comp  : ∀ (a : Actor) (t : Time) (E F : EndE),
+                  E ≠ F →
+                  (∃ α : Action, Avail a α t ∧ EndOf α E) →
+                  (∃ β : Action, Avail a β t ∧ EndOf β F) →
+                  Pref a t E F ∨ Pref a t F E
   Pref_trans : ∀ (a : Actor) (t : Time) (E F G : EndE),
                   Pref a t E F → Pref a t F G → Pref a t E G
   Pref_asymm : ∀ (a : Actor) (t : Time) (E F : EndE),
@@ -556,9 +600,15 @@ class PraxeologyMU extends Praxeology where
 
   MU0_func   : ∀ (a : Actor) (t : Time) (x : Thing) (E F : EndE),
                   Allot a t x E → Allot a t x F → E = F
+  MU0_feas   : ∀ (a : Actor) (t : Time) (x : Thing) (g : Good) (E : EndE),
+                  UnitOf x g → Allot a t x E →
+                  (∃ (α : Action) (x' : Thing),
+                     Avail a α t ∧ EndOf α E ∧ Use α x' ∧ UnitOf x' g)
   MU4_top    : ∀ (a : Actor) (t : Time) (g : Good) (E F : EndE),
                   (∃ x : Thing, UnitOf x g ∧ Allot a t x E) →
                   (∃ α : Action, Avail a α t ∧ EndOf α F) →
+                  (∃ (α : Action) (x : Thing),
+                     Avail a α t ∧ EndOf α F ∧ Use α x ∧ UnitOf x g) →
                   Pref a t F E →
                   (∃ x : Thing, UnitOf x g ∧ Allot a t x F)
 
@@ -595,71 +645,239 @@ def ServedExcept (a : P.Actor) (t : P.Time) (g : P.Good)
     (y : P.Thing) (E : P.EndE) : Prop :=
   ∃ x : P.Thing, P.UnitOf x g ∧ x ≠ y ∧ P.Allot a t x E
 
+/-- Dropping the `x ≠ y` restriction: a reduced-served end is
+    served.  (The "reduced case" sentence of
+    `lem:served_choice_relevant`.) -/
+theorem servedExcept_served
+    (a : P.Actor) (t : P.Time) (g : P.Good)
+    (y : P.Thing) (E : P.EndE)
+    (h : ServedExcept a t g y E) : Served a t g E := by
+  obtain ⟨x, hxUnit, _, hxAllot⟩ := h
+  exact ⟨x, hxUnit, hxAllot⟩
+
+/-- **Lemma (Served ends are choice-relevant)** ---
+    Lemma `lem:served_choice_relevant`.
+
+    If some unit of `g` is allotted to `E` at `(a,t)`, then `E`
+    is choice-relevant: some available action aims at `E`.
+
+    *Proof.*  The witnessing allotment is a populated cell of the
+    schedule; by (MU0) feasibility its end is `g`-serviceable,
+    and `Serviceable` (Definition `def:serviceable`) exhibits an
+    available action with end `E`, i.e. `EndAt a t E`. -/
+theorem served_choice_relevant
+    (a : P.Actor) (t : P.Time) (g : P.Good) (E : P.EndE)
+    (h : Served a t g E) : EndAt a t E := by
+  obtain ⟨x, hxUnit, hxAllot⟩ := h
+  obtain ⟨α, _, hAvail, hEnd, _, _⟩ := P.MU0_feas a t x g E hxUnit hxAllot
+  exact ⟨α, hAvail, hEnd⟩
+
 end PraxeologyMU
 
 ----------------------------------------------------------------
 -- SECTION 10.  Diminishing Marginal Utility
 ----------------------------------------------------------------
 
+/-- **Helper (minimum of a finite set under a strict total
+    order).**  If a predicate `S` is non-empty on a list `l` and
+    the relation `R` is transitive and total on `S`, then `S` has
+    an `R`-minimal element among the members of `l` (an element
+    `m` with `R F m ∨ F = m` for every `S`-member `F` of `l`).
+
+    This is the only place finiteness enters: it is the Lean
+    counterpart of "a non-empty finite subset of a strict total
+    order has a unique minimal element" in Step 2 of
+    `app:dmu_proof`, with the finiteness of the choice menu
+    (`rem:finiteness`) supplied as the covering list `l`.  Stated
+    for an arbitrary type so it stays independent of the
+    praxeological signature. -/
+private theorem exists_min_on_list {α : Type} {R : α → α → Prop}
+    {S : α → Prop}
+    (Rtrans : ∀ {x y z : α}, R x y → R y z → R x z)
+    (comp : ∀ {x y : α}, S x → S y → x ≠ y → R x y ∨ R y x) :
+    ∀ l : List α, (∃ x, S x ∧ x ∈ l) →
+      ∃ m, S m ∧ ∀ F, S F → F ∈ l → R F m ∨ F = m := by
+  intro l
+  induction l with
+  | nil =>
+    intro ⟨_, _, hx⟩
+    cases hx
+  | cons a l ih =>
+    intro ⟨x, hSx, hxmem⟩
+    by_cases hSa : S a
+    ·  -- The head satisfies S.  Does the tail contribute?
+      by_cases hl : ∃ z, S z ∧ z ∈ l
+      ·  -- Take the tail's minimum m and compare it with a.
+        obtain ⟨m, hSm, hmin⟩ := ih hl
+        by_cases ham : a = m
+        ·  -- a coincides with the tail minimum.
+          subst ham
+          refine ⟨a, hSa, ?_⟩
+          intro F hSF hF
+          rcases List.mem_cons.mp hF with rfl | hF'
+          · exact Or.inr rfl
+          · exact hmin F hSF hF'
+        · rcases comp hSa hSm ham with hRam | hRma
+          ·  -- a ≻ m: the tail minimum survives.
+            refine ⟨m, hSm, ?_⟩
+            intro F hSF hF
+            rcases List.mem_cons.mp hF with rfl | hF'
+            · exact Or.inl hRam
+            · exact hmin F hSF hF'
+          ·  -- m ≻ a: the head becomes the new minimum
+             -- (transitivity pushes everything above a).
+            refine ⟨a, hSa, ?_⟩
+            intro F hSF hF
+            rcases List.mem_cons.mp hF with rfl | hF'
+            · exact Or.inr rfl
+            · rcases hmin F hSF hF' with hFm | rfl
+              · exact Or.inl (Rtrans hFm hRma)
+              · exact Or.inl hRma
+      ·  -- The head is the only S-member.
+        refine ⟨a, hSa, ?_⟩
+        intro F hSF hF
+        rcases List.mem_cons.mp hF with rfl | hF'
+        · exact Or.inr rfl
+        · exact absurd ⟨F, hSF, hF'⟩ hl
+    ·  -- The head fails S: the witness lives in the tail.
+      have hxl : x ∈ l := by
+        rcases List.mem_cons.mp hxmem with rfl | h
+        · exact absurd hSx hSa
+        · exact h
+      obtain ⟨m, hSm, hmin⟩ := ih ⟨x, hSx, hxl⟩
+      refine ⟨m, hSm, ?_⟩
+      intro F hSF hF
+      rcases List.mem_cons.mp hF with rfl | hF'
+      · exact absurd hSF hSa
+      · exact hmin F hSF hF'
+
 namespace PraxeologyMU
 variable [P : PraxeologyMU]
 
 /-- **Theorem (Diminishing marginal utility)** ---
-    Theorem `thm:DMU`, the corrected Option-B' statement.
+    Theorem `thm:DMU`, in the paper's tightened form: the
+    reduced marginal end `E*` is *derived*, not assumed.
 
     Let `y` be a unit of good `g` allotted at `(a,t)` to a
     choice-relevant end `E`.  Suppose:
       (i)   *Uniqueness on E* --- no other unit of `g` is
             allotted to `E`.
       (ii)  *Marginality of E* --- `E` is the least-preferred
-            end currently served by `g` at `(a,t)`.
-      (iii) *Reduced marginal E** --- the reduced served set
-            `ServedExcept a t g y` has a least-preferred
-            element `E*`.
-    Then `E* ≻ E`.
+            end currently served by `g` at `(a,t)`
+            (Definition `def:marginal_end`).
+      (iii) *Non-emptiness of the reduced supply* --- some end
+            other than `E` is served by `g` at `(a,t)`
+            (Mises's implicit `n ≥ 2`).
+    Then the marginal end `E*` of the reduced served set
+    `ServedExcept a t g y` exists, is unique, and satisfies
+    `E* ≻ E`.
 
-    The proof matches Steps 1–2 of the appendix proof
-    `app:dmu_proof` verbatim.  It uses only the
-    hypotheses --- no (MU)-axiom is invoked, because the
-    structural content is concentrated in (ii). -/
+    Finiteness of the choice menu (`rem:finiteness`) enters as
+    the hypothesis pair `menu`/`hmenu`: a list of ends covering
+    the choice-relevant ends at `(a,t)`.  (No finiteness is
+    assumed of the sort `EndE` itself, matching the remark.)
+
+    The proof matches Steps 1–3 of the appendix proof
+    `app:dmu_proof`: besides the hypotheses it consumes
+    `lem:served_choice_relevant`, the functionality half of
+    (MU0) (which turns non-emptiness (iii) into existence of
+    `E*`), and (O2)/(O3) comparability and transitivity on the
+    choice menu.  (MU4) is not invoked --- it is deductively
+    engaged only in `DMU_structure` below. -/
 theorem DMU
     (a : P.Actor) (t : P.Time) (g : P.Good)
-    (y : P.Thing) (E E_star : P.EndE)
+    (y : P.Thing) (E : P.EndE)
     -- Setup of the theorem statement
     (_hyUnit : P.UnitOf y g)
-    (_hyAllot : P.Allot a t y E)
+    (hyAllot : P.Allot a t y E)
     (_hyEndAt : EndAt a t E)
+    -- Finiteness of the choice menu (rem:finiteness)
+    (menu : List P.EndE)
+    (hmenu : ∀ F : P.EndE, EndAt a t F → F ∈ menu)
     -- (i) Uniqueness on E
     (uniq : ∀ x : P.Thing,
               P.UnitOf x g → P.Allot a t x E → x = y)
     -- (ii) Marginality of E in the full state
     (marg : ∀ F : P.EndE,
               Served a t g F → P.Pref a t F E ∨ F = E)
-    -- (iii) E_star exists in the reduced state
-    (e_redServed : ServedExcept a t g y E_star)
-    (_e_redMarg  : ∀ F : P.EndE,
-                     ServedExcept a t g y F →
-                     P.Pref a t F E_star ∨ F = E_star)
-    : P.Pref a t E_star E := by
-  -- Unpack e_redServed: x ≠ y allotted to E_star.
-  obtain ⟨x, hxUnit, hxNe, hxAllot⟩ := e_redServed
-  -- Drop the `x ≠ y` constraint to recover Served E_star.
-  have hServed : Served a t g E_star := ⟨x, hxUnit, hxAllot⟩
-  -- Apply marginality (ii) to E_star.
-  rcases marg E_star hServed with hpref | heq
-  ·  -- Case Pref E_star E: done.
-    exact hpref
-  ·  -- Case E_star = E: contradiction with (i).
-    rw [heq] at hxAllot
-    exact absurd (uniq x hxUnit hxAllot) hxNe
+    -- (iii) Non-emptiness of the reduced supply
+    (nonempty : ∃ F : P.EndE, F ≠ E ∧ Served a t g F)
+    : ∃ E_star : P.EndE,
+        -- E* is the marginal end of the reduced served set ...
+        (ServedExcept a t g y E_star ∧
+          ∀ F : P.EndE, ServedExcept a t g y F →
+            P.Pref a t F E_star ∨ F = E_star) ∧
+        -- ... it is unique with that property ...
+        (∀ E' : P.EndE,
+            ServedExcept a t g y E' →
+            (∀ F : P.EndE, ServedExcept a t g y F →
+              P.Pref a t F E' ∨ F = E') →
+            E' = E_star) ∧
+        -- ... and DMU proper: E* ≻ E.
+        P.Pref a t E_star E := by
+  -- Step 1: every end of the reduced served set differs from E
+  -- (by uniqueness (i)) and hence sits strictly above E (by
+  -- marginality (ii)).
+  have step1 : ∀ F : P.EndE,
+      ServedExcept a t g y F → P.Pref a t F E := by
+    intro F hF
+    obtain ⟨x, hxUnit, hxNe, hxAllot⟩ := hF
+    have hFne : F ≠ E := by
+      intro heq
+      rw [heq] at hxAllot
+      exact hxNe (uniq x hxUnit hxAllot)
+    rcases marg F ⟨x, hxUnit, hxAllot⟩ with h | h
+    · exact h
+    · exact absurd h hFne
+  -- Step 2a: the reduced served set is non-empty.  The witness
+  -- unit for (iii) cannot be y: y's cell is E by the theorem
+  -- premise, and (MU0)-functionality forbids a second cell.
+  obtain ⟨F₀, hF₀ne, x₀, hx₀Unit, hx₀Allot⟩ := nonempty
+  have hx₀y : x₀ ≠ y := by
+    intro h
+    rw [h] at hx₀Allot
+    exact hF₀ne (P.MU0_func a t y F₀ E hx₀Allot hyAllot)
+  have hF₀red : ServedExcept a t g y F₀ := ⟨x₀, hx₀Unit, hx₀y, hx₀Allot⟩
+  -- Step 2b: reduced-served ends are choice-relevant
+  -- (lem:served_choice_relevant), hence lie in the finite menu,
+  -- on which Pref is a strict total order by (O2)/(O3).
+  have hcover : ∀ F : P.EndE, ServedExcept a t g y F → F ∈ menu :=
+    fun F hF =>
+      hmenu F (served_choice_relevant a t g F (servedExcept_served a t g y F hF))
+  have hcomp : ∀ {F G : P.EndE},
+      ServedExcept a t g y F → ServedExcept a t g y G → F ≠ G →
+      P.Pref a t F G ∨ P.Pref a t G F :=
+    fun hF hG hne =>
+      P.Pref_comp a t _ _ hne
+        (served_choice_relevant a t g _ (servedExcept_served a t g y _ hF))
+        (served_choice_relevant a t g _ (servedExcept_served a t g y _ hG))
+  -- Extract the minimum E* of the reduced served set.
+  obtain ⟨E_star, hSE, hminOn⟩ :=
+    exists_min_on_list
+      (R := fun F G => P.Pref a t F G)
+      (S := fun F => ServedExcept a t g y F)
+      (fun h₁ h₂ => P.Pref_trans a t _ _ _ h₁ h₂) hcomp
+      menu ⟨F₀, hF₀red, hcover F₀ hF₀red⟩
+  have hmin : ∀ F : P.EndE, ServedExcept a t g y F →
+      P.Pref a t F E_star ∨ F = E_star :=
+    fun F hF => hminOn F hF (hcover F hF)
+  -- Assemble: marginality of E*, uniqueness (via comparability
+  -- and asymmetry), and Step 3: E* ≻ E from Step 1.
+  refine ⟨E_star, ⟨hSE, hmin⟩, ?_, step1 E_star hSE⟩
+  intro E' hSE' hmin'
+  rcases hmin E' hSE' with h | h
+  · rcases hmin' E_star hSE with h' | h'
+    · exact absurd h' (P.Pref_asymm a t E' E_star h)
+    · exact h'.symm
+  · exact h
 
 /-- **Corollary (Structure preservation under marginal removal)**
     --- Corollary `cor:dmu_structure`.
 
     Under the hypotheses of `DMU`, the reduced served set
     `ServedExcept a t g y` is itself a top-segment of the
-    choice menu under `Pref`, i.e. (MU4) continues to hold
-    for the "y-removed" allotment.
+    *g-serviceable* choice-relevant ends under `Pref`, i.e.
+    (MU4) continues to hold for the "y-removed" allotment.
 
     This *does* use (MU0)-functionality and (MU4)-top-segment
     on the full state, plus `Pref_asymm`. -/
@@ -675,9 +893,10 @@ theorem DMU_structure
     : ∀ (F' G : P.EndE),
         ServedExcept a t g y F' →
         EndAt a t G →
+        Serviceable a t g G →
         P.Pref a t G F' →
         ServedExcept a t g y G := by
-  intro F' G hF' hG hpref
+  intro F' G hF' hG hGserv hpref
   -- Unpack F' ∈ ServedExcept y, then F' is also Served.
   obtain ⟨xF, hxFUnit, hxFNe, hxFAllot⟩ := hF'
   have hF'Served : Served a t g F' := ⟨xF, hxFUnit, hxFAllot⟩
@@ -691,9 +910,10 @@ theorem DMU_structure
     rcases marg F' hF'Served with h | h
     · exact h
     · exact absurd h hF'NotE
-  -- (MU4)-top-segment: G ≻ F' and F' served implies G served.
+  -- (MU4)-top-segment: G ≻ F', G g-serviceable, and F' served
+  -- implies G served.
   have hGServed : Served a t g G :=
-    P.MU4_top a t g F' G hF'Served hG hpref
+    P.MU4_top a t g F' G hF'Served hG hGserv hpref
   obtain ⟨z, hzUnit, hzAllot⟩ := hGServed
   -- Split on z = y.
   by_cases hzy : z = y
@@ -709,6 +929,655 @@ theorem DMU_structure
 
 end PraxeologyMU
 
+----------------------------------------------------------------
+-- SECTION 11.  The two-good water/fish model (MU4 satisfiability)
+----------------------------------------------------------------
+
+/-! Concrete `PraxeologyMU` instance: the "two-good allotment
+    schedule" Crusoe box accompanying (MU4) in §3.2 of the
+    Foundations paper.  Robinson holds four units w1–w4 of the
+    good Water and three units f1–f3 of the good Fish, with six
+    choice-relevant ends ranked
+
+        Drink ≻ Eat ≻ Cook ≻ Store ≻ Wash ≻ Garden.
+
+    Water can serve Drink, Cook, Wash, Garden; fish can serve
+    Eat, Store.  The allotment schedule (one cell per unit):
+
+        w1 → Drink          f1 → Eat
+        w2 → Cook           f2 → Eat
+        w3 → Cook           f3 → Store
+        w4 → Wash           (Garden unserved — an (MU3) witness)
+
+    The two goods *alternate* down the single value scale —
+    water, fish, water, fish, water — which is exactly the case
+    the unrelativized (MU4) excluded: water serving Cook would
+    have been faulted for Eat ≻ Cook going unserved by water,
+    although water cannot serve Eat.  Lean's acceptance of this
+    instance is a constructive satisfiability proof of the
+    corrected, relativized axiom class on a multi-good model;
+    the `example` after the instance verifies that the *old*
+    unrelativized (MU4) is genuinely false here. -/
+
+inductive WFActor : Type | robinson
+  deriving DecidableEq
+
+/-- One action per (good, serviceable end) pair. -/
+inductive WFAction : Type
+  | drinkWater | eatFish | cookWithWater | storeFish
+  | washWithWater | waterGarden
+  deriving DecidableEq
+
+inductive WFEnd : Type
+  | drink | eat | cook | store | wash | garden
+  deriving DecidableEq
+
+inductive WFThing : Type
+  | w1 | w2 | w3 | w4 | f1 | f2 | f3
+  deriving DecidableEq
+
+inductive WFTime : Type | s0 | s1
+  deriving DecidableEq
+
+inductive WFGood : Type | water | fishG
+  deriving DecidableEq
+
+/-- Time precedence: s0 < s1. -/
+def WFLt : WFTime → WFTime → Prop
+  | .s0, .s1 => True
+  | _,   _   => False
+
+/-- Robinson's chosen history: he drinks at s0 (the top-ranked
+    end), nothing recorded at s1. -/
+def WFActs : WFActor → WFAction → WFTime → Prop
+  | _, .drinkWater, .s0 => True
+  | _, _, _ => False
+
+/-- All six actions are available at all times: the whole value
+    scale is choice-relevant throughout. -/
+def WFAvail : WFActor → WFAction → WFTime → Prop :=
+  fun _ _ _ => True
+
+/-- Each action's end. -/
+def WFEndOf : WFAction → WFEnd → Prop
+  | .drinkWater,    .drink  => True
+  | .eatFish,       .eat    => True
+  | .cookWithWater, .cook   => True
+  | .storeFish,     .store  => True
+  | .washWithWater, .wash   => True
+  | .waterGarden,   .garden => True
+  | _, _ => False
+
+/-- Use relation: each action employs one representative unit of
+    its good (one witness suffices for `Serviceable`; the
+    menu-level fungibility axiom (MU2) is not part of the Lean
+    class). -/
+def WFUse : WFAction → WFThing → Prop
+  | .drinkWater,    .w1 => True
+  | .cookWithWater, .w2 => True
+  | .washWithWater, .w4 => True
+  | .waterGarden,   .w1 => True
+  | .eatFish,       .f1 => True
+  | .storeFish,     .f3 => True
+  | _, _ => False
+
+/-- Units of the two goods. -/
+def WFUnitOf : WFThing → WFGood → Prop
+  | .w1, .water | .w2, .water | .w3, .water | .w4, .water => True
+  | .f1, .fishG | .f2, .fishG | .f3, .fishG => True
+  | _, _ => False
+
+/-- The allotment schedule of the Crusoe box: seven cells,
+    constant over time.  Eat and Cook are multi-unit ends
+    (two cells each); Garden is unserved. -/
+def WFAllot : WFActor → WFTime → WFThing → WFEnd → Prop
+  | _, _, .w1, .drink => True
+  | _, _, .w2, .cook  => True
+  | _, _, .w3, .cook  => True
+  | _, _, .w4, .wash  => True
+  | _, _, .f1, .eat   => True
+  | _, _, .f2, .eat   => True
+  | _, _, .f3, .store => True
+  | _, _, _, _ => False
+
+/-- Rank on the single value scale (0 = most preferred):
+    Drink ≻ Eat ≻ Cook ≻ Store ≻ Wash ≻ Garden. -/
+def WFRank : WFEnd → Nat
+  | .drink  => 0
+  | .eat    => 1
+  | .cook   => 2
+  | .store  => 3
+  | .wash   => 4
+  | .garden => 5
+
+/-- The two-good water/fish model satisfies every axiom of
+    `PraxeologyMU` — including the corrected, relativized (MU4).
+    Every axiom is verified by Lean during the type-check of
+    this `instance` block. -/
+instance waterFishModel : PraxeologyMU where
+  Actor  := WFActor
+  Action := WFAction
+  EndE   := WFEnd
+  Thing  := WFThing
+  Time   := WFTime
+  Lt     := WFLt
+  Acts   := WFActs
+  Avail  := WFAvail
+  EndOf  := WFEndOf
+  Use    := WFUse
+  -- The production enrichment is idle in this instance: nothing
+  -- is produced, and every unit directly satisfies wants.
+  Result := fun _ _ => False
+  Consumable := fun _ => True
+
+  T1_irrefl := by intro t h; cases t <;> exact h
+  T2_trans := by
+    intro t s r h₁ h₂
+    cases t <;> cases s <;> cases r <;>
+      first | trivial | exact h₁.elim | exact h₂.elim
+  T3_trichot := by
+    intro t s
+    cases t <;> cases s <;>
+      first
+      | (exact Or.inl trivial)
+      | (exact Or.inr (Or.inl rfl))
+      | (exact Or.inr (Or.inr trivial))
+  T4_nontriv := ⟨.s0, .s1, trivial⟩
+
+  -- (P1) Everything is always available.
+  P1 := fun _ _ => ⟨.drinkWater, trivial⟩
+  P2 := fun _ _ _ _ => trivial
+  P3 := by
+    intro α
+    cases α
+    · exact ⟨.drink,  trivial⟩
+    · exact ⟨.eat,    trivial⟩
+    · exact ⟨.cook,   trivial⟩
+    · exact ⟨.store,  trivial⟩
+    · exact ⟨.wash,   trivial⟩
+    · exact ⟨.garden, trivial⟩
+  P4 := by
+    intro α E F hE hF
+    cases α <;> cases E <;> cases F <;>
+      first | rfl | exact hE.elim | exact hF.elim
+  -- (P5) Only one action is ever performed, so the premises pin
+  -- α = β = drinkWater and the α ≠ β hypothesis closes each case.
+  P5 := by
+    intro a α β t s hα hβ hne
+    cases α <;> cases β <;> cases t <;> cases s <;>
+      first | exact (hne rfl).elim | exact hα.elim | exact hβ.elim
+  C1 := by
+    intro a t α β hα hβ
+    cases t <;> cases α <;> cases β <;>
+      first | rfl | exact hα.elim | exact hβ.elim
+
+  Good   := WFGood
+  UnitOf := WFUnitOf
+  Allot  := WFAllot
+  -- The single value scale, read off the rank function.
+  Pref   := fun _ _ E F => WFRank E < WFRank F
+
+  -- (O2) Any two distinct ends are rank-comparable.
+  Pref_comp := by
+    intro a t E F hne _ _
+    cases E <;> cases F <;>
+      first
+      | exact absurd rfl hne
+      | exact Or.inl (by decide)
+      | exact Or.inr (by decide)
+  Pref_trans := fun _ _ _ _ _ h₁ h₂ => Nat.lt_trans h₁ h₂
+  Pref_asymm := by
+    intro a t E F h h'
+    omega
+
+  -- (MU0) functionality: each unit occupies at most one cell.
+  MU0_func := by
+    intro a t x E F hE hF
+    cases x <;> cases E <;> cases F <;>
+      first | rfl | exact hE.elim | exact hF.elim
+  -- (MU0) feasibility: every populated cell pairs a unit with an
+  -- end its good can serve; the witnesses are the six actions.
+  MU0_feas := by
+    intro a t x g E hUnit hAllot
+    cases x <;> cases g <;> cases E <;>
+      first
+      | exact hUnit.elim
+      | exact hAllot.elim
+      | exact ⟨.drinkWater,    .w1, trivial, trivial, trivial, trivial⟩
+      | exact ⟨.eatFish,       .f1, trivial, trivial, trivial, trivial⟩
+      | exact ⟨.cookWithWater, .w2, trivial, trivial, trivial, trivial⟩
+      | exact ⟨.storeFish,     .f3, trivial, trivial, trivial, trivial⟩
+      | exact ⟨.washWithWater, .w4, trivial, trivial, trivial, trivial⟩
+  -- (MU4) relativized top-segment, verified good by good:
+  --   water's served set {Drink, Cook, Wash} is a top-segment of
+  --   the water-serviceable ends {Drink, Cook, Wash, Garden};
+  --   fish's served set {Eat, Store} exhausts the
+  --   fish-serviceable ends {Eat, Store}.
+  -- Served goals are closed by exhibiting the allotted unit;
+  -- non-serviceable F is refuted from the Serviceable premise;
+  -- for (water, Garden) the Pref premise is refuted (Garden is
+  -- bottom-ranked) once the Served premise pins E.
+  MU4_top := by
+    intro a t g E F hServed _hEndAt hServiceable hPref
+    cases g <;> cases F <;>
+      first
+      | exact ⟨.w1, trivial, trivial⟩
+      | exact ⟨.w2, trivial, trivial⟩
+      | exact ⟨.w4, trivial, trivial⟩
+      | exact ⟨.f1, trivial, trivial⟩
+      | exact ⟨.f3, trivial, trivial⟩
+      | (obtain ⟨α, x, _, hEnd, hUse, hUnit⟩ := hServiceable
+         cases α <;> cases x <;>
+           first | exact hEnd.elim | exact hUse.elim | exact hUnit.elim)
+      | (obtain ⟨z, hzUnit, hzAllot⟩ := hServed
+         cases E <;> cases z <;>
+           first
+           | exact hzUnit.elim
+           | exact hzAllot.elim
+           | exact absurd hPref (by decide))
+
+/-- **The old, unrelativized (MU4) fails on the two-good model.**
+    Instantiated at `g = water`, `E = Cook`, `F = Eat`: water
+    serves Cook, Eat is choice-relevant and higher-ranked
+    (Eat ≻ Cook), yet no unit of water is — or, by (MU0)
+    feasibility, could be — allotted to Eat.  This is review
+    finding #11: the quantifier of the original (MU4) ranged
+    over *all* higher-ranked choice-relevant ends instead of the
+    `g`-serviceable ones, so it excluded every model whose goods
+    alternate down one value scale.  The relativized `MU4_top`
+    of `waterFishModel` type-checks; this `example` shows the
+    relativization is not vacuous but necessary. -/
+example :
+    ¬ (∀ (E F : WFEnd),
+        (∃ x : WFThing, WFUnitOf x .water ∧
+           WFAllot .robinson .s0 x E) →
+        (∃ α : WFAction, WFAvail .robinson α .s0 ∧ WFEndOf α F) →
+        WFRank F < WFRank E →
+        (∃ x : WFThing, WFUnitOf x .water ∧
+           WFAllot .robinson .s0 x F)) := by
+  intro h
+  -- Apply the unrelativized axiom to E = Cook (served by w2),
+  -- F = Eat (choice-relevant via eatFish, and Eat ≻ Cook).
+  obtain ⟨x, hUnit, hAllot⟩ :=
+    h .cook .eat ⟨.w2, trivial, trivial⟩
+      ⟨.eatFish, trivial, trivial⟩ (by decide)
+  -- But no unit of water is allotted to Eat.
+  cases x <;> first | exact hUnit.elim | exact hAllot.elim
+
+/-- **DMU applied in the two-good model.**  Water's marginal end
+    is Wash, served uniquely by w4.  Removing w4 leaves the
+    reduced water-served set {Drink, Cook}; the theorem derives
+    its marginal end E* and concludes E* ≻ Wash (in fact
+    E* = Cook).  All three hypotheses and the finite menu are
+    discharged by case analysis. -/
+example :
+    ∃ E_star : WFEnd,
+      @PraxeologyMU.ServedExcept waterFishModel
+        .robinson .s0 .water .w4 E_star ∧
+      WFRank E_star < WFRank .wash := by
+  obtain ⟨E_star, ⟨hServed, _⟩, _, hPref⟩ :=
+    @PraxeologyMU.DMU waterFishModel .robinson .s0 .water .w4 .wash
+      -- setup: w4 is a unit of water, allotted to Wash,
+      -- and Wash is choice-relevant
+      trivial trivial ⟨.washWithWater, trivial, trivial⟩
+      -- finiteness: the six-end menu covers the choice-relevant ends
+      [.drink, .eat, .cook, .store, .wash, .garden]
+      (by intro F _
+          cases F
+          · exact .head _
+          · exact .tail _ (.head _)
+          · exact .tail _ (.tail _ (.head _))
+          · exact .tail _ (.tail _ (.tail _ (.head _)))
+          · exact .tail _ (.tail _ (.tail _ (.tail _ (.head _))))
+          · exact .tail _ (.tail _ (.tail _ (.tail _ (.tail _ (.head _))))))
+      -- (i) uniqueness: only w4 is allotted to Wash
+      (by intro x h₁ h₂
+          cases x <;> first | rfl | exact h₁.elim | exact h₂.elim)
+      -- (ii) marginality: every water-served end is ≻ Wash or = Wash
+      (by intro F hF
+          obtain ⟨x, hUnit, hAllot⟩ := hF
+          cases F <;> cases x <;>
+            first
+            | exact hUnit.elim
+            | exact hAllot.elim
+            | exact Or.inl (show WFRank _ < WFRank _ by decide)
+            | exact Or.inr rfl)
+      -- (iii) non-emptiness: Cook ≠ Wash is also water-served (by w2)
+      ⟨.cook, (by intro h; cases h), .w2, trivial, trivial⟩
+  exact ⟨E_star, hServed, hPref⟩
+
+----------------------------------------------------------------
+-- SECTION 12.  The full base theory T_prx  (Layers 1 + 2 + 3)
+----------------------------------------------------------------
+
+/-! The class `Praxeology` above encodes the *action core* of the
+    Foundations paper — the fragment (T1)–(T4), (P1)–(P5), (C1)
+    that the paper's Appendix A calls "the encoded core."  The
+    full base theory adds the remaining time axioms ((T0) first
+    moment, (T5) irreversibility, (T6) discreteness), free-good
+    exclusion (P6), the scarcity anchor (S1), and Layer 2: the
+    valuational primitive `Pref` — the actor's scale of values —
+    together with the grounding axiom (O0) and the order axioms
+    (O1)–(O4), per the paper's §2.3 redesign.
+
+    (T6) gives every moment a successor, so the full theory has
+    **no finite models**: the three-period Crusoe instance above
+    cannot witness it.  Section 13 provides the ℕ-time witness. -/
+
+class PraxeologyFull extends Praxeology where
+  /-- Layer-2 valuational primitive: the actor's scale of values
+      `E ≻ᵗₐ F`.  Primitive in the language, epistemically hidden;
+      grounded in the revealed record by (O0). -/
+  Pref : Actor → Time → EndE → EndE → Prop
+
+  -- Remaining TIME-ORDER axioms (T0, T5, T6)
+  T0_first : ∃ t₀ : Time, ∀ t : Time, t₀ = t ∨ Lt t₀ t
+  T5_irrev : ∀ t s : Time, Lt t s → ¬ Lt s t
+  T6_succ  : ∀ t : Time, ∃ s : Time,
+               Lt t s ∧ ¬ ∃ r : Time, Lt t r ∧ Lt r s
+
+  -- (P6) Free-good exclusion: every employed thing has, at some
+  -- time, an available-but-unperformed employing action.
+  P6 : ∀ (a : Actor) (t : Time) (α : Action) (x : Thing),
+       Acts a α t → Use α x →
+       ∃ (β : Action) (s : Time),
+         Avail a β s ∧ Use β x ∧ ¬ Acts a β s
+
+  -- (S1) Existence of scarcity: a genuine resource conflict.
+  S1 : ∃ (a : Actor) (t : Time) (α β : Action) (x : Thing),
+       α ≠ β ∧ Avail a α t ∧ Avail a β t ∧ Use α x ∧ Use β x
+
+  -- LAYER-2 AXIOMS (O0)–(O4).  (O0) is stated with the record
+  -- definition inlined (definitionally equal to `RevPref`).
+  O0_grounding : ∀ (a : Actor) (t : Time) (E F : EndE),
+       (E ≠ F ∧ ∃ α β : Action,
+         Acts a α t ∧ Avail a β t ∧ α ≠ β ∧
+         EndOf α E ∧ EndOf β F) →
+       Pref a t E F
+  O1_always : ∀ (a : Actor) (t : Time), ∃ α : Action, Acts a α t
+  O2_total : ∀ (a : Actor) (t : Time) (E F : EndE), E ≠ F →
+       (∃ α : Action, Avail a α t ∧ EndOf α E) →
+       (∃ β : Action, Avail a β t ∧ EndOf β F) →
+       Pref a t E F ∨ Pref a t F E
+  O3_trans : ∀ (a : Actor) (t : Time) (E F G : EndE),
+       Pref a t E F → Pref a t F G → Pref a t E G
+  O4_asymm : ∀ (a : Actor) (t : Time) (E F : EndE),
+       Pref a t E F → ¬ Pref a t F E
+
+/-- **The chosen end tops the scale (`prop:chosen_max`).**
+    The performed action's end outranks every other available end:
+    the record is a star from the realised end, and (O0) lifts the
+    star into the primitive order.  Uniqueness of the maximum is
+    immediate from (O4). -/
+theorem PraxeologyFull.chosen_end_tops_scale [P : PraxeologyFull]
+    (a : P.Actor) (t : P.Time) (α : P.Action) (Ehat F : P.EndE)
+    (hact : P.Acts a α t) (hend : P.EndOf α Ehat) (hne : F ≠ Ehat)
+    (β : P.Action) (hav : P.Avail a β t) (hβF : P.EndOf β F) :
+    P.Pref a t Ehat F := by
+  have hαβ : α ≠ β := by
+    intro h
+    exact hne (P.P4 α F Ehat (h ▸ hβF) hend)
+  exact P.O0_grounding a t Ehat F
+    ⟨fun h => hne h.symm, α, β, hact, hav, hαβ, hend, hβF⟩
+
+----------------------------------------------------------------
+-- SECTION 13.  The ℕ-time Crusoe model: consistency of the
+--              full base theory
+----------------------------------------------------------------
+
+/-! (T6) has no finite models, so the witness needs `Time := ℕ`.
+    This folds the paper's state diagram into an infinite history,
+    making the "walk the diagram for as many rounds as you want"
+    reading a machine-checked consistency proof of the FULL base
+    theory.  Two design constraints are respected:
+
+    * **Non-greedy history.**  After building the net (t = 0) and
+      the boat (t = 1), Crusoe alternates deep-sea fishing (even
+      t ≥ 2) with shore fishing (odd t ≥ 3).  A greedy "always
+      deep-sea" history would falsify (P6) for the boat: the only
+      boat-using action would never be available-but-unperformed.
+
+    * **Orders co-vary with the history.**  The preference ranks
+      flip with the parity of t, so the chosen end always tops the
+      scale and (O0) holds at every moment.  Preference reversal
+      across time is licensed by `rem:constancy`. -/
+
+namespace NatCrusoe
+
+open CrusoeActor CrusoeAction CrusoeEnd CrusoeThing
+
+/-- The infinite, non-greedy history. -/
+def act : Nat → CrusoeAction
+  | 0     => buildNet
+  | 1     => buildBoat
+  | n + 2 => if n % 2 = 0 then deepSeaFish else shoreFish
+
+def NatActs : CrusoeActor → CrusoeAction → Nat → Prop :=
+  fun _ α t => α = act t
+
+/-- Menus by capital epoch: Forage and BuildNet always (Q₀);
+    ShoreFish and BuildBoat from t = 1 (net in hand, Q₁);
+    DeepSeaFish from t = 2 (boat in hand, Q₂). -/
+def NatAvail : CrusoeActor → CrusoeAction → Nat → Prop :=
+  fun _ α t =>
+    match α with
+    | forage      => True
+    | buildNet    => True
+    | shoreFish   => 1 ≤ t
+    | buildBoat   => 1 ≤ t
+    | deepSeaFish => 2 ≤ t
+
+/-- Preference ranks, lower = more preferred: capital-formation
+    phase (t = 0, 1), deep-sea days (even t ≥ 2), shore days
+    (odd t ≥ 3). -/
+def rankEarly : CrusoeEnd → Nat
+  | capital => 0 | shoreCatch => 1 | subsist => 2 | deepCatch => 3
+def rankEven : CrusoeEnd → Nat
+  | deepCatch => 0 | shoreCatch => 1 | subsist => 2 | capital => 3
+def rankOdd : CrusoeEnd → Nat
+  | shoreCatch => 0 | deepCatch => 1 | subsist => 2 | capital => 3
+
+def rank : Nat → CrusoeEnd → Nat
+  | 0     => rankEarly
+  | 1     => rankEarly
+  | n + 2 => if n % 2 = 0 then rankEven else rankOdd
+
+def NatPref : CrusoeActor → Nat → CrusoeEnd → CrusoeEnd → Prop :=
+  fun _ t E F => rank t E < rank t F
+
+/-- Each per-phase rank function is injective … -/
+theorem rankEarly_inj : ∀ E F, rankEarly E = rankEarly F → E = F := by
+  intro E F h
+  cases E <;> cases F <;> first | rfl | exact absurd h (by decide)
+theorem rankEven_inj : ∀ E F, rankEven E = rankEven F → E = F := by
+  intro E F h
+  cases E <;> cases F <;> first | rfl | exact absurd h (by decide)
+theorem rankOdd_inj : ∀ E F, rankOdd E = rankOdd F → E = F := by
+  intro E F h
+  cases E <;> cases F <;> first | rfl | exact absurd h (by decide)
+
+/-- … hence `rank t` is injective at every time. -/
+theorem rank_inj : ∀ (t : Nat) (E F : CrusoeEnd),
+    rank t E = rank t F → E = F := by
+  intro t E F
+  match t with
+  | 0 => exact rankEarly_inj E F
+  | 1 => exact rankEarly_inj E F
+  | n + 2 =>
+    simp only [rank]
+    split
+    · exact rankEven_inj E F
+    · exact rankOdd_inj E F
+
+/-- The chosen action's end always carries rank 0: the orders
+    co-vary with the history. -/
+theorem rank_act_end : ∀ (t : Nat) (E : CrusoeEnd),
+    CrusoeEndOf (act t) E → rank t E = 0 := by
+  intro t E h
+  match t with
+  | 0 => cases E <;> first | rfl | exact h.elim
+  | 1 => cases E <;> first | rfl | exact h.elim
+  | n + 2 =>
+    by_cases hp : n % 2 = 0
+    · simp only [act, if_pos hp] at h
+      simp only [rank, if_pos hp]
+      cases E <;> first | rfl | exact h.elim
+    · simp only [act, if_neg hp] at h
+      simp only [rank, if_neg hp]
+      cases E <;> first | rfl | exact h.elim
+
+/-- **The ℕ-time Crusoe model.**  Lean's acceptance of this
+    instance block is a constructive consistency proof of the
+    full base theory — (T0)–(T6), (P1)–(P6), (C1), (O0)–(O4),
+    (S1) — which no finite structure can witness. -/
+instance crusoeNatModel : PraxeologyFull where
+  Actor := CrusoeActor
+  Action := CrusoeAction
+  EndE := CrusoeEnd
+  Thing := CrusoeThing
+  Time := Nat
+  Lt := (· < ·)
+  Acts := NatActs
+  Avail := NatAvail
+  EndOf := CrusoeEndOf
+  Use := CrusoeUse
+  Result := CrusoeResult
+  Consumable := CrusoeConsumable
+  Pref := NatPref
+
+  -- Time order: the standard strict order on ℕ.
+  T1_irrefl := fun t => Nat.lt_irrefl t
+  T2_trans := fun _ _ _ h₁ h₂ => Nat.lt_trans h₁ h₂
+  T3_trichot := fun t s => by omega
+  T4_nontriv := ⟨0, 1, by omega⟩
+  T0_first := ⟨0, fun t => by omega⟩
+  T5_irrev := fun t s h h' => by omega
+  T6_succ := fun t => ⟨t + 1, by omega, by rintro ⟨r, h₁, h₂⟩; omega⟩
+
+  -- (P1) Forage is always available.
+  P1 := fun _ t => ⟨forage, trivial⟩
+
+  -- (P2) The history respects the menus.
+  P2 := by
+    intro a α t h
+    rw [show α = act t from h]
+    match t with
+    | 0 => trivial
+    | 1 => show 1 ≤ 1; omega
+    | n + 2 =>
+      by_cases hp : n % 2 = 0
+      · simp only [act, if_pos hp]; show 2 ≤ n + 2; omega
+      · simp only [act, if_neg hp]; show 1 ≤ n + 2; omega
+
+  -- (P3)/(P4): same EndOf table as the finite model.
+  P3 := by
+    intro α
+    cases α
+    · exact ⟨subsist,    trivial⟩
+    · exact ⟨capital,    trivial⟩
+    · exact ⟨shoreCatch, trivial⟩
+    · exact ⟨capital,    trivial⟩
+    · exact ⟨deepCatch,  trivial⟩
+  P4 := by
+    intro α E F hE hF
+    cases α <;> cases E <;> cases F <;>
+      first | rfl | exact hE.elim | exact hF.elim
+
+  -- (P5) The history is a function of time.
+  P5 := by
+    intro a α β t s hα hβ hne hts
+    subst hts
+    exact hne ((show α = act t from hα).trans
+               (show β = act t from hβ).symm)
+
+  -- (C1) Likewise.
+  C1 := fun a t α β hα hβ =>
+    (show α = act t from hα).trans (show β = act t from hβ).symm
+
+  -- (P6) Every used thing has an idle slot — this is where the
+  -- non-greedy history earns its keep (act 2 = DeepSeaFish,
+  -- act 3 = ShoreFish).
+  P6 := by
+    intro a t α x hAct hUse
+    cases a
+    cases α <;> cases x <;> (try exact hUse.elim)
+    · exact ⟨buildNet, 2, trivial, trivial,
+             (by show buildNet ≠ act 2; decide)⟩
+    · exact ⟨shoreFish, 2, (by show (1:Nat) ≤ 2; omega), trivial,
+             (by show shoreFish ≠ act 2; decide)⟩
+    · exact ⟨buildBoat, 2, (by show (1:Nat) ≤ 2; omega), trivial,
+             (by show buildBoat ≠ act 2; decide)⟩
+    · exact ⟨deepSeaFish, 3, (by show (2:Nat) ≤ 3; omega), trivial,
+             (by show deepSeaFish ≠ act 3; decide)⟩
+    · exact ⟨deepSeaFish, 3, (by show (2:Nat) ≤ 3; omega), trivial,
+             (by show deepSeaFish ≠ act 3; decide)⟩
+
+  -- (S1) BuildNet and BuildBoat compete for wood at t = 1.
+  S1 := ⟨crusoe, 1, buildNet, buildBoat, wood,
+         (by intro h; cases h), trivial,
+         (by show (1:Nat) ≤ 1; omega),
+         trivial, trivial⟩
+
+  -- (O0) Grounding: the chosen end has rank 0, every other end
+  -- has positive rank (by injectivity).  No availability data is
+  -- needed: the orders were built to contain the record.
+  O0_grounding := by
+    intro a t E F hRev
+    obtain ⟨hEF, α, _, hact, _, _, hαE, _⟩ := hRev
+    rw [show α = act t from hact] at hαE
+    show rank t E < rank t F
+    have hE0 : rank t E = 0 := rank_act_end t E hαE
+    have hF0 : rank t F ≠ 0 := by
+      intro h0
+      exact hEF (rank_inj t E F (by rw [hE0, h0]))
+    omega
+
+  -- (O1) The history acts at every moment.
+  O1_always := fun _ t => ⟨act t, rfl⟩
+
+  -- (O2) Totality from rank-injectivity and ℕ-trichotomy.
+  O2_total := by
+    intro a t E F hne _ _
+    rcases Nat.lt_trichotomy (rank t E) (rank t F) with h | h | h
+    · exact Or.inl h
+    · exact absurd (rank_inj t E F h) hne
+    · exact Or.inr h
+
+  -- (O3)/(O4): the order is a strict total order at each t.
+  O3_trans := fun _ _ _ _ _ h₁ h₂ => Nat.lt_trans h₁ h₂
+  O4_asymm := fun _ _ _ _ h h' => absurd (Nat.lt_trans h h') (Nat.lt_irrefl _)
+
+end NatCrusoe
+
+/-! Sanity checks on the infinite model: at an even time the
+    chosen deep-sea catch tops the scale; at an odd time the
+    shore catch does — the preference reversal of `rem:constancy`,
+    machine-checked. -/
+
+example : NatCrusoe.NatPref CrusoeActor.crusoe 4
+    CrusoeEnd.deepCatch CrusoeEnd.shoreCatch := by
+  show NatCrusoe.rank 4 CrusoeEnd.deepCatch
+     < NatCrusoe.rank 4 CrusoeEnd.shoreCatch
+  decide
+example : NatCrusoe.NatPref CrusoeActor.crusoe 5
+    CrusoeEnd.shoreCatch CrusoeEnd.deepCatch := by
+  show NatCrusoe.rank 5 CrusoeEnd.shoreCatch
+     < NatCrusoe.rank 5 CrusoeEnd.deepCatch
+  decide
+
+/-- `prop:chosen_max` exercised on the infinite model: at t = 4
+    (a deep-sea day) the chosen end DeepCatch outranks the
+    available alternative Subsist. -/
+example :
+    @PraxeologyFull.Pref NatCrusoe.crusoeNatModel
+      CrusoeActor.crusoe (4 : Nat) CrusoeEnd.deepCatch CrusoeEnd.subsist :=
+  PraxeologyFull.chosen_end_tops_scale
+    CrusoeActor.crusoe (4 : Nat) CrusoeAction.deepSeaFish
+    CrusoeEnd.deepCatch CrusoeEnd.subsist
+    (by show CrusoeAction.deepSeaFish = NatCrusoe.act 4; decide)
+    trivial (by intro h; cases h)
+    CrusoeAction.forage trivial trivial
+
 -- Useful checks: ask Lean to print the types of our results.
 #check @Praxeology.revPref_eq_of_both
 #check @Praxeology.revPref_asymm
@@ -720,5 +1589,11 @@ end PraxeologyMU
 #check @PraxeologyMU.Serviceable
 #check @PraxeologyMU.Served
 #check @PraxeologyMU.ServedExcept
+#check @PraxeologyMU.servedExcept_served
+#check @PraxeologyMU.served_choice_relevant
 #check @PraxeologyMU.DMU
 #check @PraxeologyMU.DMU_structure
+#check @waterFishModel
+#check @PraxeologyFull
+#check @PraxeologyFull.chosen_end_tops_scale
+#check @NatCrusoe.crusoeNatModel
