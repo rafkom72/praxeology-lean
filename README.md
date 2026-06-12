@@ -2,7 +2,7 @@
 
 A machine-verified formalization of the Hilbert-style axiomatization of praxeology accompanying
 
-> Komendarczyk, R., Block, W., Levendis, J., and Tipler, F. *Axiomatizing Austrian Economics — Praxeological Foundations: The Base System and Its Derived Theorems.* Manuscript, 2026.
+> Komendarczyk, R., Block, W., Levendis, J., and Tipler, F. *A Formalization of Austrian Economics — Praxeological Foundations: The Base System and Its Derived Theorems.* Manuscript, 2026.
 
 This repository contains the Lean 4 companion to the paper. The single file [`Praxeology.lean`](Praxeology.lean) encodes the paper's praxeological signature as a Lean type class, instantiates it with a concrete three-period Robinson Crusoe model, and verifies — by exhaustive case analysis carried out by Lean's type checker — that every axiom of the *action core* (T1–T4, P1–P5, C1) holds on that model.
 
@@ -47,7 +47,7 @@ If you use this formalization in academic work, please cite the accompanying pap
 ```bibtex
 @unpublished{Komendarczyk2026Praxeology,
   author       = {Komendarczyk, Rafa{\l} and Block, Walter and Levendis, John and Tipler, Frank},
-  title        = {Axiomatizing Austrian Economics --- Praxeological Foundations: The Base System and Its Derived Theorems},
+  title        = {A Formalization of Austrian Economics --- Praxeological Foundations: The Base System and Its Derived Theorems},
   year         = {2026},
   note         = {Lean~4 companion: \url{https://github.com/rafkom72/praxeology-lean}}
 }

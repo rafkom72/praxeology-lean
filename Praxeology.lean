@@ -3,7 +3,8 @@
 
 A formalization of the Hilbert-style axiomatization of praxeology
 following Komendarczyk, Block, Levendis, and Tipler,
-"An Axiomatization of Praxeology --- Foundations" (2026).
+"A Formalization of Austrian Economics --- Praxeological
+Foundations" (2026).
 
 This file is **self-contained**: it imports nothing and uses only
 Lean 4 core (no Mathlib). If everything compiles cleanly, every
