@@ -208,11 +208,16 @@ theorem revPref_asymm
   intro h'
   exact h.1 (revPref_eq_of_both a t E F h h')
 
-/-- **Existence of opportunity cost (Proposition 2.4).**
+/-- **Foregone-action lemma.**
     If actor `a` performs some action `α` at time `t`, and a
     distinct action `β` is available at that time, then `β` is
-    a *foregone* alternative — available but not realized. -/
-theorem opportunity_cost
+    *foregone* — available but not realized. This is the
+    choice-axiom (C1) half of opportunity cost: the chosen action
+    crowds out every other action. (Formerly named
+    `opportunity_cost`; that name now denotes the stronger,
+    distinct-ends result below, matching the paper's
+    `thm:opp_cost`.) -/
+theorem foregone_action
     (a : P.Actor) (t : P.Time) (α β : P.Action)
     (hα_acts : P.Acts a α t)
     (_hβ_avail : P.Avail a β t)
@@ -222,6 +227,49 @@ theorem opportunity_cost
   refine ⟨F, hβ_F, ?_⟩
   intro hβ_acts
   exact hαβ (P.C1 a t α β hα_acts hβ_acts)
+
+/-- **Existence of opportunity cost (`thm:opp_cost`).**
+    If two actions `α, β` are available at `(a,t)` with *distinct*
+    ends `E ≠ F`, then the action `γ` actually performed excludes
+    at least one alternative *available* end: there is an available
+    action `δ` whose end `G` the performed action does not realize,
+    and `δ` is itself foregone. Mirrors the paper's proof — the
+    performed action has a unique end by `P4`, so it cannot realize
+    two distinct available ends; the unrealized one is the
+    opportunity cost, and its action is not performed by `C1`.
+    (In the full theory `O1` supplies the performed action `γ`;
+    here it is taken as a hypothesis.) Every hypothesis is
+    load-bearing: `γ`-performed and `C1` give the not-performed
+    clause, `P4` the unrealized-end clause, availability the
+    witness, and `E ≠ F` the exclusion. -/
+theorem opportunity_cost
+    (a : P.Actor) (t : P.Time)
+    (γ : P.Action) (hγ_acts : P.Acts a γ t)
+    (α β : P.Action)
+    (hα_avail : P.Avail a α t) (hβ_avail : P.Avail a β t)
+    (E F : P.EndE) (hαE : P.EndOf α E) (hβF : P.EndOf β F)
+    (hEF : E ≠ F) :
+    ∃ (δ : P.Action) (G : P.EndE),
+      P.Avail a δ t ∧ P.EndOf δ G ∧ ¬ P.EndOf γ G ∧ ¬ P.Acts a δ t := by
+  obtain ⟨Eγ, hγEγ⟩ := P.P3 γ
+  -- A foregone available end (one differing from the performed
+  -- action's unique end Eγ) yields the witness: not realized by γ
+  -- (P4), and its action not performed (C1).
+  have build : ∀ (δ : P.Action) (G : P.EndE),
+      P.Avail a δ t → P.EndOf δ G → G ≠ Eγ →
+      ∃ (δ' : P.Action) (G' : P.EndE),
+        P.Avail a δ' t ∧ P.EndOf δ' G' ∧ ¬ P.EndOf γ G' ∧ ¬ P.Acts a δ' t := by
+    intro δ G hδ hδG hGEγ
+    have hnot : ¬ P.EndOf γ G := fun hγG => hGEγ (P.P4 γ G Eγ hγG hγEγ)
+    refine ⟨δ, G, hδ, hδG, hnot, ?_⟩
+    intro hδ_acts
+    have hδγ : δ = γ := P.C1 a t δ γ hδ_acts hγ_acts
+    subst hδγ
+    exact hnot hδG
+  -- At least one of the distinct available ends E, F differs from Eγ.
+  by_cases h : E = Eγ
+  · exact build β F hβ_avail hβF (fun hFEγ => hEF (h.trans hFEγ.symm))
+  · exact build α E hα_avail hαE h
 
 end Praxeology
 
@@ -489,13 +537,34 @@ example :
      (by intro h; cases h), trivial, trivial⟩
 
 /-- At t0, Forage is a foregone alternative: Crusoe could have
-    foraged but chose BuildNet instead. -/
+    foraged but chose BuildNet instead (the choice-axiom half). -/
 example :
     ∃ F : CrusoeEnd, CrusoeEndOf forage F ∧ ¬ CrusoeActs crusoe forage t0 :=
-  @Praxeology.opportunity_cost crusoeModel
+  @Praxeology.foregone_action crusoeModel
     crusoe t0 buildNet forage
     (show CrusoeActs crusoe buildNet t0 from trivial)
     (show CrusoeAvail crusoe forage t0 from trivial)
+    (by intro h; cases h)
+
+/-- Opportunity cost on the Crusoe model (`thm:opp_cost`): at t0
+    Crusoe performs BuildNet (end Capital); Forage (end Subsist)
+    and BuildNet (end Capital) are both available with distinct
+    ends, so the performed action excludes at least one available
+    alternative end, witnessed by an action that is itself
+    foregone. -/
+example :
+    ∃ (δ : CrusoeAction) (G : CrusoeEnd),
+      CrusoeAvail crusoe δ t0 ∧ CrusoeEndOf δ G ∧
+      ¬ CrusoeEndOf buildNet G ∧ ¬ CrusoeActs crusoe δ t0 :=
+  @Praxeology.opportunity_cost crusoeModel
+    crusoe t0 buildNet
+    (show CrusoeActs crusoe buildNet t0 from trivial)
+    forage buildNet
+    (show CrusoeAvail crusoe forage t0 from trivial)
+    (show CrusoeAvail crusoe buildNet t0 from trivial)
+    subsist capital
+    (show CrusoeEndOf forage subsist from trivial)
+    (show CrusoeEndOf buildNet capital from trivial)
     (by intro h; cases h)
 
 /-- At t1, Crusoe reveals `Capital ≻ ShoreCatch`: he chose
@@ -1582,6 +1651,7 @@ example :
 -- Useful checks: ask Lean to print the types of our results.
 #check @Praxeology.revPref_eq_of_both
 #check @Praxeology.revPref_asymm
+#check @Praxeology.foregone_action
 #check @Praxeology.opportunity_cost
 #check @Praxeology.Order
 #check @CrusoeOrder_total
