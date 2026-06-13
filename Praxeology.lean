@@ -54,24 +54,31 @@ Wood at order 3). Acceptance of the `crusoeModel` instance is a
 constructive consistency proof of T_prx (with the production
 enrichment) on this model.
 
-Sections 8–10 add the (MU)-enrichment of the Foundations paper
-§3.2: the new sort `Good`, the predicates `UnitOf`, `Allot`, and
-`Pref`, the order axioms (O2)/(O3) `Pref_comp`/`Pref_trans` with
-asymmetry `Pref_asymm`, both halves of (MU0), and (MU4)
+Section 8 adds the full base theory `PraxeologyFull` (the
+remaining time axioms T0/T5/T6, free-good exclusion P6, the
+scarcity anchor S1, and Layer 2: the valuational primitive `Pref`
+with grounding (O0) and order axioms (O1)–(O4)).  Sections 9–11
+add the (MU)-enrichment of the Foundations paper §3.2, as a class
+`PraxeologyMU` that *extends `PraxeologyFull`*: the new sort
+`Good`, the predicates `UnitOf`, `Allot`, both halves of (MU0),
+the homogeneity axiom (MU2), the scarcity axiom (MU3), and (MU4)
 top-segment — in its corrected form, relativized to the good's
-*serviceable* ends.  Then the diminishing-marginal-utility
-theorem (`thm:DMU` of the Foundations paper §3.2) and its
-structure-preservation corollary (`cor:dmu_structure`) are
-stated and machine-verified, mirroring the appendix proof
+*serviceable* ends.  The order on which marginal utility operates
+is the base theory's own scale of values, inherited (no separate
+MU preference relation).  Then the diminishing-marginal-utility
+theorem (`thm:DMU`) and its structure-preservation corollary
+(`cor:dmu_structure`) are stated and machine-verified, mirroring
 `app:dmu_proof`.
 
-Section 11 adds a worked (MU)-instance: the two-good water/fish
+Section 12 adds the joint witness: the two-good water/fish
 allotment schedule from the Crusoe box accompanying (MU4) in the
-paper, in which two goods alternate down a single value scale.
-Lean's acceptance of `waterFishModel` proves the relativized
-(MU4) admits this multi-good case, and an `example` verifies
-that the old *unrelativized* form of (MU4) fails on it — the
-reason the axiom had to be corrected.
+paper, in which two goods alternate down a single value scale,
+realized over ℕ-time so that it satisfies the *full* base theory,
+the production enrichment, and the (MU)-enrichment in one
+structure.  Lean's acceptance of `waterFishModel` proves the
+relativized (MU4) admits this multi-good case, and an `example`
+verifies that the old *unrelativized* form of (MU4) fails on it —
+the reason the axiom had to be corrected.
 
 Further enrichments — ownership, exchange, monetary calculation,
 and the transition map — are deferred to future Lean stages,
@@ -596,77 +603,126 @@ example : @Praxeology.Order crusoeModel wood 3 :=
       (.base fish trivial))
 
 ----------------------------------------------------------------
--- SECTION 8.  The (MU)-enrichment (§3.2)
+-- SECTION 8.  The full base theory T_prx  (Layers 1 + 2 + 3)
 ----------------------------------------------------------------
 
-/-- The `PraxeologyMU` class extends `Praxeology` with the
-    additional primitives and axioms needed for the
-    diminishing-marginal-utility theorem of §3.2.
+/-! The class `Praxeology` above encodes the *action core* of the
+    Foundations paper — the fragment (T1)–(T4), (P1)–(P5), (C1)
+    that the paper's Appendix A calls "the encoded core."  The
+    full base theory adds the remaining time axioms ((T0) first
+    moment, (T5) irreversibility, (T6) discreteness), free-good
+    exclusion (P6), the scarcity anchor (S1), and Layer 2: the
+    valuational primitive `Pref` — the actor's scale of values —
+    together with the grounding axiom (O0) and the order axioms
+    (O1)–(O4), per the paper's §2.3 redesign.
 
-    New primitives:
-      * `Good`    : a new sort partitioning Things into
-                    homogeneous classes.
+    (T6) gives every moment a successor, so the full theory has
+    **no finite models**: the three-period Crusoe instance above
+    cannot witness it.  Section 13 provides the ℕ-time witness;
+    the joint base+E5+MU witness `waterFishModel` (Section 12) is
+    over ℕ-time for the same reason.
+
+    The (MU)-enrichment of Section 9 *extends this class*, so the
+    valuational primitive `Pref` and the order axioms (O2)–(O4)
+    used by the diminishing-marginal-utility theorem are exactly
+    the base theory's scale of values — there is no separate MU
+    preference relation. -/
+
+class PraxeologyFull extends Praxeology where
+  /-- Layer-2 valuational primitive: the actor's scale of values
+      `E ≻ᵗₐ F`.  Primitive in the language, epistemically hidden;
+      grounded in the revealed record by (O0). -/
+  Pref : Actor → Time → EndE → EndE → Prop
+
+  -- Remaining TIME-ORDER axioms (T0, T5, T6)
+  T0_first : ∃ t₀ : Time, ∀ t : Time, t₀ = t ∨ Lt t₀ t
+  T5_irrev : ∀ t s : Time, Lt t s → ¬ Lt s t
+  T6_succ  : ∀ t : Time, ∃ s : Time,
+               Lt t s ∧ ¬ ∃ r : Time, Lt t r ∧ Lt r s
+
+  -- (P6) Free-good exclusion: every employed thing has, at some
+  -- time, an available-but-unperformed employing action.
+  P6 : ∀ (a : Actor) (t : Time) (α : Action) (x : Thing),
+       Acts a α t → Use α x →
+       ∃ (β : Action) (s : Time),
+         Avail a β s ∧ Use β x ∧ ¬ Acts a β s
+
+  -- (S1) Existence of scarcity: a genuine resource conflict.
+  S1 : ∃ (a : Actor) (t : Time) (α β : Action) (x : Thing),
+       α ≠ β ∧ Avail a α t ∧ Avail a β t ∧ Use α x ∧ Use β x
+
+  -- LAYER-2 AXIOMS (O0)–(O4).  (O0) is stated with the record
+  -- definition inlined (definitionally equal to `RevPref`).
+  O0_grounding : ∀ (a : Actor) (t : Time) (E F : EndE),
+       (E ≠ F ∧ ∃ α β : Action,
+         Acts a α t ∧ Avail a β t ∧ α ≠ β ∧
+         EndOf α E ∧ EndOf β F) →
+       Pref a t E F
+  O1_always : ∀ (a : Actor) (t : Time), ∃ α : Action, Acts a α t
+  O2_total : ∀ (a : Actor) (t : Time) (E F : EndE), E ≠ F →
+       (∃ α : Action, Avail a α t ∧ EndOf α E) →
+       (∃ β : Action, Avail a β t ∧ EndOf β F) →
+       Pref a t E F ∨ Pref a t F E
+  O3_trans : ∀ (a : Actor) (t : Time) (E F G : EndE),
+       Pref a t E F → Pref a t F G → Pref a t E G
+  O4_asymm : ∀ (a : Actor) (t : Time) (E F : EndE),
+       Pref a t E F → ¬ Pref a t F E
+
+----------------------------------------------------------------
+-- SECTION 9.  The (MU)-enrichment (§3.2)
+----------------------------------------------------------------
+
+/-- The `PraxeologyMU` class extends `PraxeologyFull` with the
+    production/allocation primitives and the (MU)-axioms of §3.2.
+    Because it extends the *full base theory*, every instance is a
+    single structure satisfying the base theory, the production
+    enrichment (E5, idle in the witness below), and the
+    (MU)-enrichment jointly.  There is no separate MU preference
+    relation: `Pref` and the order axioms (O0)–(O4) are inherited
+    from `PraxeologyFull` and reused verbatim — the scale of values
+    on which diminishing marginal utility operates is the base
+    theory's own.
+
+    New primitives (beyond the full base theory):
+      * `Good`    : a sort partitioning Things into homogeneous
+                    classes.
       * `UnitOf`  : x is a unit of good g.
-      * `Allot`   : actor a at time t allots unit x to end E
-                    (the allocation schedule, distinct from
-                    performance: see Section 2.4 of the paper).
-      * `Pref`    : the revealed-preference order
-                    `Pref a t E F` reads "E ≻ F by a at t".
+      * `Allot`   : actor a at time t allots unit x to end E (the
+                    allocation schedule, distinct from performance).
 
-    Axioms encoded here (the subset load-bearing for DMU and
-    its corollary):
-      * `Pref_comp`   : (O2) menu-comparability --- any two
-                        distinct choice-relevant ends are
-                        comparable.  Together with finiteness of
-                        the choice menu (`rem:finiteness`) it
-                        turns non-emptiness of the reduced served
-                        set into existence and uniqueness of its
-                        marginal end (Step 2 of `app:dmu_proof`).
-      * `Pref_trans`  : (O3) transitivity of preference.
-      * `Pref_asymm`  : strict-order convention; together with
-                        transitivity gives irreflexivity.
-      * `MU0_func`    : functionality half of (MU0) ---
-                        each unit allots to at most one end.
-      * `MU0_feas`    : feasibility half of (MU0) --- only
-                        feasible cells are populated: an allotted
-                        unit's good can serve the end (the
-                        right-hand side is `Serviceable`,
-                        inlined).  Underwrites
-                        `lem:served_choice_relevant`.
-      * `MU4_top`     : (MU4) preference-respecting allocation
-                        (the served set is a top-segment of the
-                        *g-serviceable* choice-relevant ends
-                        under `Pref`).  The serviceability
-                        qualifier confines the requirement to
-                        ends within the good's reach: water
-                        allotted to washing is not faulted
-                        because hunger --- an end water cannot
-                        serve --- ranks higher and goes unserved
-                        by water.  Without the qualifier, any
-                        model in which two goods alternate down
-                        a single value scale would be excluded
-                        outright (see `waterFishModel` below).
+    (MU)-axioms encoded here:
+      * `MU0_func`  : functionality half of (MU0) — each unit
+                      allots to at most one end.
+      * `MU0_feas`  : feasibility half of (MU0) — only feasible
+                      cells are populated (the right-hand side is
+                      `Serviceable`, inlined).  Underwrites
+                      `lem:served_choice_relevant`.
+      * `MU2_homog` : (MU2) homogeneity of units (menu-level) — if
+                      some unit of g can serve E via an available
+                      action, then so can any other unit of g.  A
+                      substantive modeling commitment, not a
+                      bookkeeping convention.
+      * `MU3_scarce`: (MU3) scarcity for good g (cardinal-free) —
+                      some choice-relevant end is not served by g.
+                      Stated via the derived predicates `EndAt`,
+                      `Served`, inlined to avoid a forward reference.
+      * `MU4_top`   : (MU4) preference-respecting allocation — the
+                      served set is a top-segment of the
+                      *g-serviceable* choice-relevant ends under
+                      `Pref`.  The serviceability qualifier confines
+                      the requirement to ends within the good's
+                      reach (see `waterFishModel` below).
 
-    The remaining (MU)-axioms ((MU2) menu-level fungibility,
-    (MU3) scarcity awareness) are not invoked by the theorem or
-    its corollary and are omitted here.  (MU2) and (MU3) are
-    semantic and non-vacuity premises respectively; landing them
-    in Lean is a routine extension. -/
-class PraxeologyMU extends Praxeology where
+    The order axioms (O2)–(O4) and finiteness of the choice menu
+    (`rem:finiteness`) turn non-emptiness of the reduced served set
+    into existence and uniqueness of its marginal end (Step 2 of
+    `app:dmu_proof`).  (MU2)/(MU3) are not invoked by the DMU
+    theorem itself, but are now part of the class and verified on
+    the joint witness. -/
+class PraxeologyMU extends PraxeologyFull where
   Good      : Type
   UnitOf    : Thing → Good → Prop
   Allot     : Actor → Time → Thing → EndE → Prop
-  Pref      : Actor → Time → EndE → EndE → Prop
-
-  Pref_comp  : ∀ (a : Actor) (t : Time) (E F : EndE),
-                  E ≠ F →
-                  (∃ α : Action, Avail a α t ∧ EndOf α E) →
-                  (∃ β : Action, Avail a β t ∧ EndOf β F) →
-                  Pref a t E F ∨ Pref a t F E
-  Pref_trans : ∀ (a : Actor) (t : Time) (E F G : EndE),
-                  Pref a t E F → Pref a t F G → Pref a t E G
-  Pref_asymm : ∀ (a : Actor) (t : Time) (E F : EndE),
-                  Pref a t E F → ¬ Pref a t F E
 
   MU0_func   : ∀ (a : Actor) (t : Time) (x : Thing) (E F : EndE),
                   Allot a t x E → Allot a t x F → E = F
@@ -674,6 +730,19 @@ class PraxeologyMU extends Praxeology where
                   UnitOf x g → Allot a t x E →
                   (∃ (α : Action) (x' : Thing),
                      Avail a α t ∧ EndOf α E ∧ Use α x' ∧ UnitOf x' g)
+  -- (MU2) Homogeneity of units (menu-level): if some unit of g can
+  -- serve E via an available action, then so can any other unit.
+  MU2_homog  : ∀ (a : Actor) (t : Time) (g : Good) (E : EndE) (x y : Thing),
+                  UnitOf x g → UnitOf y g →
+                  (∃ α : Action, Avail a α t ∧ EndOf α E ∧ Use α x) →
+                  (∃ β : Action, Avail a β t ∧ EndOf β E ∧ Use β y)
+  -- (MU3) Scarcity for good g (cardinal-free): some choice-relevant
+  -- end goes unserved by g.  `EndAt`/`Served` are inlined (they are
+  -- defined in `namespace PraxeologyMU` below, after the class).
+  MU3_scarce : ∀ (a : Actor) (t : Time) (g : Good),
+                  ∃ F : EndE,
+                    (∃ α : Action, Avail a α t ∧ EndOf α F) ∧
+                    ¬ (∃ x : Thing, UnitOf x g ∧ Allot a t x F)
   MU4_top    : ∀ (a : Actor) (t : Time) (g : Good) (E F : EndE),
                   (∃ x : Thing, UnitOf x g ∧ Allot a t x E) →
                   (∃ α : Action, Avail a α t ∧ EndOf α F) →
@@ -918,7 +987,7 @@ theorem DMU
       ServedExcept a t g y F → ServedExcept a t g y G → F ≠ G →
       P.Pref a t F G ∨ P.Pref a t G F :=
     fun hF hG hne =>
-      P.Pref_comp a t _ _ hne
+      P.O2_total a t _ _ hne
         (served_choice_relevant a t g _ (servedExcept_served a t g y _ hF))
         (served_choice_relevant a t g _ (servedExcept_served a t g y _ hG))
   -- Extract the minimum E* of the reduced served set.
@@ -926,7 +995,7 @@ theorem DMU
     exists_min_on_list
       (R := fun F G => P.Pref a t F G)
       (S := fun F => ServedExcept a t g y F)
-      (fun h₁ h₂ => P.Pref_trans a t _ _ _ h₁ h₂) hcomp
+      (fun h₁ h₂ => P.O3_trans a t _ _ _ h₁ h₂) hcomp
       menu ⟨F₀, hF₀red, hcover F₀ hF₀red⟩
   have hmin : ∀ F : P.EndE, ServedExcept a t g y F →
       P.Pref a t F E_star ∨ F = E_star :=
@@ -937,7 +1006,7 @@ theorem DMU
   intro E' hSE' hmin'
   rcases hmin E' hSE' with h | h
   · rcases hmin' E_star hSE with h' | h'
-    · exact absurd h' (P.Pref_asymm a t E' E_star h)
+    · exact absurd h' (P.O4_asymm a t E' E_star h)
     · exact h'.symm
   · exact h
 
@@ -950,7 +1019,7 @@ theorem DMU
     (MU4) continues to hold for the "y-removed" allotment.
 
     This *does* use (MU0)-functionality and (MU4)-top-segment
-    on the full state, plus `Pref_asymm`. -/
+    on the full state, plus `O4_asymm`. -/
 theorem DMU_structure
     (a : P.Actor) (t : P.Time) (g : P.Good)
     (y : P.Thing) (E : P.EndE)
@@ -989,11 +1058,11 @@ theorem DMU_structure
   by_cases hzy : z = y
   ·  -- If z = y, then G = E by (MU0)-functionality, then
      -- hpref : Pref a t E F' contradicts hF'_E : Pref a t F' E
-     -- via Pref_asymm.
+     -- via O4_asymm.
     rw [hzy] at hzAllot
     have hGE : G = E := P.MU0_func a t y G E hzAllot hyAllot
     rw [hGE] at hpref
-    exact absurd hpref (P.Pref_asymm a t F' E hF'_E)
+    exact absurd hpref (P.O4_asymm a t F' E hF'_E)
   ·  -- z ≠ y: G is in ServedExcept y.
     exact ⟨z, hzUnit, hzy, hzAllot⟩
 
@@ -1046,26 +1115,21 @@ inductive WFThing : Type
   | w1 | w2 | w3 | w4 | f1 | f2 | f3
   deriving DecidableEq
 
-inductive WFTime : Type | s0 | s1
-  deriving DecidableEq
-
 inductive WFGood : Type | water | fishG
   deriving DecidableEq
 
-/-- Time precedence: s0 < s1. -/
-def WFLt : WFTime → WFTime → Prop
-  | .s0, .s1 => True
-  | _,   _   => False
-
-/-- Robinson's chosen history: he drinks at s0 (the top-ranked
-    end), nothing recorded at s1. -/
-def WFActs : WFActor → WFAction → WFTime → Prop
-  | _, .drinkWater, .s0 => True
-  | _, _, _ => False
+/-- Robinson drinks at every moment (the top-ranked end); the full
+    value scale is choice-relevant throughout.  Time is ℕ so that
+    (T6) discreteness holds — every moment has a successor — which
+    no finite-time structure can satisfy.  This is what lifts the
+    instance to a witness of the *full* base theory, not just the
+    (MU)-fragment. -/
+def WFActs : WFActor → WFAction → Nat → Prop :=
+  fun _ α _ => α = .drinkWater
 
 /-- All six actions are available at all times: the whole value
     scale is choice-relevant throughout. -/
-def WFAvail : WFActor → WFAction → WFTime → Prop :=
+def WFAvail : WFActor → WFAction → Nat → Prop :=
   fun _ _ _ => True
 
 /-- Each action's end. -/
@@ -1078,18 +1142,10 @@ def WFEndOf : WFAction → WFEnd → Prop
   | .waterGarden,   .garden => True
   | _, _ => False
 
-/-- Use relation: each action employs one representative unit of
-    its good (one witness suffices for `Serviceable`; the
-    menu-level fungibility axiom (MU2) is not part of the Lean
-    class). -/
-def WFUse : WFAction → WFThing → Prop
-  | .drinkWater,    .w1 => True
-  | .cookWithWater, .w2 => True
-  | .washWithWater, .w4 => True
-  | .waterGarden,   .w1 => True
-  | .eatFish,       .f1 => True
-  | .storeFish,     .f3 => True
-  | _, _ => False
+/-- Each action's good. -/
+def WFGoodOf : WFAction → WFGood
+  | .drinkWater | .cookWithWater | .washWithWater | .waterGarden => .water
+  | .eatFish | .storeFish => .fishG
 
 /-- Units of the two goods. -/
 def WFUnitOf : WFThing → WFGood → Prop
@@ -1097,10 +1153,16 @@ def WFUnitOf : WFThing → WFGood → Prop
   | .f1, .fishG | .f2, .fishG | .f3, .fishG => True
   | _, _ => False
 
+/-- Use: each action employs *every* unit of its good.  This is
+    what makes the homogeneity axiom (MU2) hold — the earlier
+    single-representative-unit `Use` would have falsified it, since
+    a second water unit could not then serve a water-served end. -/
+def WFUse (α : WFAction) (x : WFThing) : Prop := WFUnitOf x (WFGoodOf α)
+
 /-- The allotment schedule of the Crusoe box: seven cells,
     constant over time.  Eat and Cook are multi-unit ends
     (two cells each); Garden is unserved. -/
-def WFAllot : WFActor → WFTime → WFThing → WFEnd → Prop
+def WFAllot : WFActor → Nat → WFThing → WFEnd → Prop
   | _, _, .w1, .drink => True
   | _, _, .w2, .cook  => True
   | _, _, .w3, .cook  => True
@@ -1120,17 +1182,25 @@ def WFRank : WFEnd → Nat
   | .wash   => 4
   | .garden => 5
 
-/-- The two-good water/fish model satisfies every axiom of
-    `PraxeologyMU` — including the corrected, relativized (MU4).
-    Every axiom is verified by Lean during the type-check of
-    this `instance` block. -/
+theorem WFRank_inj : ∀ E F : WFEnd, WFRank E = WFRank F → E = F := by
+  intro E F h
+  cases E <;> cases F <;> first | rfl | exact absurd h (by decide)
+
+/-- The two-good water/fish model over ℕ-time satisfies every
+    axiom of `PraxeologyMU`, hence of `PraxeologyFull`: the full
+    base theory (T0)–(T6), (P1)–(P6), (C1), (O0)–(O4), (S1), the
+    production enrichment (E5, idle here), and the (MU)-enrichment
+    (MU0), (MU2), (MU3), and the corrected, relativized (MU4) ---
+    all in a single structure.  Lean's acceptance of this
+    `instance` block is the integrated base+E5+MU consistency
+    witness (Appendix A). -/
 instance waterFishModel : PraxeologyMU where
   Actor  := WFActor
   Action := WFAction
   EndE   := WFEnd
   Thing  := WFThing
-  Time   := WFTime
-  Lt     := WFLt
+  Time   := Nat
+  Lt     := (· < ·)
   Acts   := WFActs
   Avail  := WFAvail
   EndOf  := WFEndOf
@@ -1139,23 +1209,19 @@ instance waterFishModel : PraxeologyMU where
   -- is produced, and every unit directly satisfies wants.
   Result := fun _ _ => False
   Consumable := fun _ => True
+  -- The single value scale, read off the rank function (the
+  -- `PraxeologyFull` preference primitive — DMU operates on it).
+  Pref   := fun _ _ E F => WFRank E < WFRank F
 
-  T1_irrefl := by intro t h; cases t <;> exact h
-  T2_trans := by
-    intro t s r h₁ h₂
-    cases t <;> cases s <;> cases r <;>
-      first | trivial | exact h₁.elim | exact h₂.elim
-  T3_trichot := by
-    intro t s
-    cases t <;> cases s <;>
-      first
-      | (exact Or.inl trivial)
-      | (exact Or.inr (Or.inl rfl))
-      | (exact Or.inr (Or.inr trivial))
-  T4_nontriv := ⟨.s0, .s1, trivial⟩
+  -- ACTION-CORE time axioms: the standard strict order on ℕ.
+  T1_irrefl := fun t => Nat.lt_irrefl t
+  T2_trans := fun _ _ _ h₁ h₂ => Nat.lt_trans h₁ h₂
+  T3_trichot := fun t s => by omega
+  T4_nontriv := ⟨0, 1, by omega⟩
 
   -- (P1) Everything is always available.
   P1 := fun _ _ => ⟨.drinkWater, trivial⟩
+  -- (P2) the only performed action, drinkWater, is always available.
   P2 := fun _ _ _ _ => trivial
   P3 := by
     intro α
@@ -1170,35 +1236,68 @@ instance waterFishModel : PraxeologyMU where
     intro α E F hE hF
     cases α <;> cases E <;> cases F <;>
       first | rfl | exact hE.elim | exact hF.elim
-  -- (P5) Only one action is ever performed, so the premises pin
-  -- α = β = drinkWater and the α ≠ β hypothesis closes each case.
+  -- (P5) Only drinkWater is ever performed, so two *distinct*
+  -- performed actions are impossible.
   P5 := by
-    intro a α β t s hα hβ hne
-    cases α <;> cases β <;> cases t <;> cases s <;>
-      first | exact (hne rfl).elim | exact hα.elim | exact hβ.elim
-  C1 := by
-    intro a t α β hα hβ
-    cases t <;> cases α <;> cases β <;>
-      first | rfl | exact hα.elim | exact hβ.elim
+    intro a α β t s hα hβ hne _
+    exact absurd ((show α = WFAction.drinkWater from hα).trans
+                  (show β = WFAction.drinkWater from hβ).symm) hne
+  C1 := fun _ _ α β hα hβ =>
+    (show α = WFAction.drinkWater from hα).trans
+    (show β = WFAction.drinkWater from hβ).symm
+
+  -- FULL-BASE-THEORY remaining time axioms over ℕ.
+  T0_first := ⟨0, fun t => by omega⟩
+  T5_irrev := fun t s h h' => by omega
+  T6_succ := fun t => ⟨t + 1, by omega, by rintro ⟨r, h₁, h₂⟩; omega⟩
+
+  -- (P6) Free-good exclusion: the performed action drinkWater uses
+  -- the water units; waterGarden is an available, unperformed
+  -- water-using action witnessing every used unit.
+  P6 := by
+    intro a t α x hAct hUse
+    have hα : α = WFAction.drinkWater := hAct
+    subst hα
+    -- hUse : WFUse drinkWater x = WFUnitOf x water; waterGarden also
+    -- uses every water unit (same good), and is never performed.
+    have hwg : ¬ WFActs a WFAction.waterGarden t := by
+      simp only [WFActs]
+      decide
+    exact ⟨.waterGarden, t, trivial, hUse, hwg⟩
+
+  -- (S1) drinkWater and waterGarden both use the water unit w1.
+  S1 := ⟨.robinson, 0, .drinkWater, .waterGarden, .w1,
+         (by decide), trivial, trivial, trivial, trivial⟩
+
+  -- (O0) Grounding: the chosen end Drink has rank 0, hence outranks
+  -- every other available end.  No availability data is needed.
+  O0_grounding := by
+    intro a t E F hRev
+    obtain ⟨hEF, α, _, hact, _, _, hαE, _⟩ := hRev
+    rw [show α = WFAction.drinkWater from hact] at hαE
+    have hEdrink : E = WFEnd.drink := by
+      cases E <;> first | rfl | exact hαE.elim
+    subst hEdrink
+    have hFne : F ≠ WFEnd.drink := fun h => hEF h.symm
+    show WFRank WFEnd.drink < WFRank F
+    cases F <;> first | exact absurd rfl hFne | decide
+
+  -- (O1) drinkWater is performed at every moment.
+  O1_always := fun _ _ => ⟨.drinkWater, rfl⟩
+
+  -- (O2)–(O4): the rank order is a strict total order at each time.
+  O2_total := by
+    intro a t E F hne _ _
+    rcases Nat.lt_trichotomy (WFRank E) (WFRank F) with h | h | h
+    · exact Or.inl h
+    · exact absurd (WFRank_inj E F h) hne
+    · exact Or.inr h
+  O3_trans := fun _ _ _ _ _ h₁ h₂ => Nat.lt_trans h₁ h₂
+  O4_asymm := fun _ _ _ _ h h' => absurd (Nat.lt_trans h h') (Nat.lt_irrefl _)
 
   Good   := WFGood
   UnitOf := WFUnitOf
   Allot  := WFAllot
-  -- The single value scale, read off the rank function.
-  Pref   := fun _ _ E F => WFRank E < WFRank F
-
-  -- (O2) Any two distinct ends are rank-comparable.
-  Pref_comp := by
-    intro a t E F hne _ _
-    cases E <;> cases F <;>
-      first
-      | exact absurd rfl hne
-      | exact Or.inl (by decide)
-      | exact Or.inr (by decide)
-  Pref_trans := fun _ _ _ _ _ h₁ h₂ => Nat.lt_trans h₁ h₂
-  Pref_asymm := by
-    intro a t E F h h'
-    omega
 
   -- (MU0) functionality: each unit occupies at most one cell.
   MU0_func := by
@@ -1218,6 +1317,28 @@ instance waterFishModel : PraxeologyMU where
       | exact ⟨.cookWithWater, .w2, trivial, trivial, trivial, trivial⟩
       | exact ⟨.storeFish,     .f3, trivial, trivial, trivial, trivial⟩
       | exact ⟨.washWithWater, .w4, trivial, trivial, trivial, trivial⟩
+  -- (MU2) Homogeneity: if α serves E using unit x of g, then α
+  -- serves E using any other unit y of g — because `WFUse` employs
+  -- every unit of the action's good (β := α).
+  MU2_homog := by
+    intro a t g E x y hx hy hserv
+    obtain ⟨α, hav, hend, huse⟩ := hserv
+    refine ⟨α, hav, hend, ?_⟩
+    show WFUnitOf y (WFGoodOf α)
+    cases α <;> cases x <;> cases y <;> cases g <;>
+      first | trivial | exact hx.elim | exact hy.elim | exact huse.elim
+  -- (MU3) Scarcity: water leaves Garden unserved; fish leaves
+  -- Drink unserved.  Both are choice-relevant (available actions
+  -- target them).
+  MU3_scarce := by
+    intro a t g
+    cases g
+    · exact ⟨.garden, ⟨.waterGarden, trivial, trivial⟩,
+            by rintro ⟨x, hx, ha⟩
+               cases x <;> first | exact hx.elim | exact ha.elim⟩
+    · exact ⟨.drink, ⟨.drinkWater, trivial, trivial⟩,
+            by rintro ⟨x, hx, ha⟩
+               cases x <;> first | exact hx.elim | exact ha.elim⟩
   -- (MU4) relativized top-segment, verified good by good:
   --   water's served set {Drink, Cook, Wash} is a top-segment of
   --   the water-serviceable ends {Drink, Cook, Wash, Garden};
@@ -1260,11 +1381,11 @@ instance waterFishModel : PraxeologyMU where
 example :
     ¬ (∀ (E F : WFEnd),
         (∃ x : WFThing, WFUnitOf x .water ∧
-           WFAllot .robinson .s0 x E) →
-        (∃ α : WFAction, WFAvail .robinson α .s0 ∧ WFEndOf α F) →
+           WFAllot .robinson 0 x E) →
+        (∃ α : WFAction, WFAvail .robinson α 0 ∧ WFEndOf α F) →
         WFRank F < WFRank E →
         (∃ x : WFThing, WFUnitOf x .water ∧
-           WFAllot .robinson .s0 x F)) := by
+           WFAllot .robinson 0 x F)) := by
   intro h
   -- Apply the unrelativized axiom to E = Cook (served by w2),
   -- F = Eat (choice-relevant via eatFish, and Eat ≻ Cook).
@@ -1283,10 +1404,10 @@ example :
 example :
     ∃ E_star : WFEnd,
       @PraxeologyMU.ServedExcept waterFishModel
-        .robinson .s0 .water .w4 E_star ∧
+        .robinson (0 : Nat) .water .w4 E_star ∧
       WFRank E_star < WFRank .wash := by
   obtain ⟨E_star, ⟨hServed, _⟩, _, hPref⟩ :=
-    @PraxeologyMU.DMU waterFishModel .robinson .s0 .water .w4 .wash
+    @PraxeologyMU.DMU waterFishModel .robinson (0 : Nat) .water .w4 .wash
       -- setup: w4 is a unit of water, allotted to Wash,
       -- and Wash is choice-relevant
       trivial trivial ⟨.washWithWater, trivial, trivial⟩
@@ -1317,62 +1438,11 @@ example :
   exact ⟨E_star, hServed, hPref⟩
 
 ----------------------------------------------------------------
--- SECTION 12.  The full base theory T_prx  (Layers 1 + 2 + 3)
+-- SECTION 12b.  Derived theorem of the full base theory
 ----------------------------------------------------------------
 
-/-! The class `Praxeology` above encodes the *action core* of the
-    Foundations paper — the fragment (T1)–(T4), (P1)–(P5), (C1)
-    that the paper's Appendix A calls "the encoded core."  The
-    full base theory adds the remaining time axioms ((T0) first
-    moment, (T5) irreversibility, (T6) discreteness), free-good
-    exclusion (P6), the scarcity anchor (S1), and Layer 2: the
-    valuational primitive `Pref` — the actor's scale of values —
-    together with the grounding axiom (O0) and the order axioms
-    (O1)–(O4), per the paper's §2.3 redesign.
-
-    (T6) gives every moment a successor, so the full theory has
-    **no finite models**: the three-period Crusoe instance above
-    cannot witness it.  Section 13 provides the ℕ-time witness. -/
-
-class PraxeologyFull extends Praxeology where
-  /-- Layer-2 valuational primitive: the actor's scale of values
-      `E ≻ᵗₐ F`.  Primitive in the language, epistemically hidden;
-      grounded in the revealed record by (O0). -/
-  Pref : Actor → Time → EndE → EndE → Prop
-
-  -- Remaining TIME-ORDER axioms (T0, T5, T6)
-  T0_first : ∃ t₀ : Time, ∀ t : Time, t₀ = t ∨ Lt t₀ t
-  T5_irrev : ∀ t s : Time, Lt t s → ¬ Lt s t
-  T6_succ  : ∀ t : Time, ∃ s : Time,
-               Lt t s ∧ ¬ ∃ r : Time, Lt t r ∧ Lt r s
-
-  -- (P6) Free-good exclusion: every employed thing has, at some
-  -- time, an available-but-unperformed employing action.
-  P6 : ∀ (a : Actor) (t : Time) (α : Action) (x : Thing),
-       Acts a α t → Use α x →
-       ∃ (β : Action) (s : Time),
-         Avail a β s ∧ Use β x ∧ ¬ Acts a β s
-
-  -- (S1) Existence of scarcity: a genuine resource conflict.
-  S1 : ∃ (a : Actor) (t : Time) (α β : Action) (x : Thing),
-       α ≠ β ∧ Avail a α t ∧ Avail a β t ∧ Use α x ∧ Use β x
-
-  -- LAYER-2 AXIOMS (O0)–(O4).  (O0) is stated with the record
-  -- definition inlined (definitionally equal to `RevPref`).
-  O0_grounding : ∀ (a : Actor) (t : Time) (E F : EndE),
-       (E ≠ F ∧ ∃ α β : Action,
-         Acts a α t ∧ Avail a β t ∧ α ≠ β ∧
-         EndOf α E ∧ EndOf β F) →
-       Pref a t E F
-  O1_always : ∀ (a : Actor) (t : Time), ∃ α : Action, Acts a α t
-  O2_total : ∀ (a : Actor) (t : Time) (E F : EndE), E ≠ F →
-       (∃ α : Action, Avail a α t ∧ EndOf α E) →
-       (∃ β : Action, Avail a β t ∧ EndOf β F) →
-       Pref a t E F ∨ Pref a t F E
-  O3_trans : ∀ (a : Actor) (t : Time) (E F G : EndE),
-       Pref a t E F → Pref a t F G → Pref a t E G
-  O4_asymm : ∀ (a : Actor) (t : Time) (E F : EndE),
-       Pref a t E F → ¬ Pref a t F E
+-- (The full base theory class `PraxeologyFull` is defined in
+-- Section 8, ahead of the (MU)-enrichment that extends it.)
 
 /-- **The chosen end tops the scale (`prop:chosen_max`).**
     The performed action's end outranks every other available end:
@@ -1662,9 +1732,19 @@ example :
 #check @PraxeologyMU.ServedExcept
 #check @PraxeologyMU.servedExcept_served
 #check @PraxeologyMU.served_choice_relevant
+#check @PraxeologyMU.MU2_homog
+#check @PraxeologyMU.MU3_scarce
 #check @PraxeologyMU.DMU
 #check @PraxeologyMU.DMU_structure
 #check @waterFishModel
 #check @PraxeologyFull
 #check @PraxeologyFull.chosen_end_tops_scale
 #check @NatCrusoe.crusoeNatModel
+
+-- The joint witness is a *single* structure satisfying the full
+-- base theory, the production enrichment (E5), and the
+-- (MU)-enrichment together: the `PraxeologyMU` instance projects
+-- onto a `PraxeologyFull` over the same ℕ-time carrier.  (This is
+-- the integration the referee's fragment-architecture point asked
+-- for: base + E5 + MU are no longer checked in separate models.)
+example : PraxeologyFull := waterFishModel.toPraxeologyFull
