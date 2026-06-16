@@ -1,5 +1,7 @@
 # Praxeology in Lean 4
 
+[![CI](https://github.com/rafkom72/praxeology-lean/actions/workflows/ci.yml/badge.svg)](https://github.com/rafkom72/praxeology-lean/actions/workflows/ci.yml)
+
 A machine-verified formalization of the Hilbert-style axiomatization of praxeology accompanying
 
 > Komendarczyk, R., Block, W., Levendis, J., and Tipler, F. *A Formalization of Austrian Economics — Praxeological Foundations: The Base System and Its Derived Theorems.* Manuscript, 2026.

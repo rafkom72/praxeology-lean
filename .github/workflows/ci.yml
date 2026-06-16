@@ -1,0 +1,31 @@
+name: CI
+
+# Compiles the single-file Lean development on every push and pull
+# request, giving a public, permanent certificate that Praxeology.lean
+# type-checks on the pinned toolchain (no installation required to
+# trust it). Answers the reviewer's "I am not independently certifying
+# compilation."
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: Compile Praxeology.lean
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install elan (Lean toolchain manager)
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      # elan reads `lean-toolchain` (leanprover/lean4:v4.29.0) and fetches
+      # it on demand; the file imports nothing (no Mathlib), so this is a
+      # fast, self-contained build. A non-zero exit means a proof failed.
+      - name: Compile
+        run: lean Praxeology.lean
