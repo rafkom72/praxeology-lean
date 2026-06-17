@@ -60,7 +60,8 @@ scarcity anchor S1, and Layer 2: the valuational primitive `Pref`
 with grounding (O0) and order axioms (O1)–(O4)).  Sections 9–11
 add the (MU)-enrichment of the Foundations paper §3.2, as a class
 `PraxeologyMU` that *extends `PraxeologyFull`*: the new sort
-`Good`, the predicates `UnitOf`, `Allot`, both halves of (MU0),
+`Good`, the predicates `UnitOf`, `Allot`, (MU0) functionality and
+(MU1) feasibility,
 the homogeneity axiom (MU2), the scarcity axiom (MU3), and (MU4)
 top-segment — in its corrected form, relativized to the good's
 *serviceable* ends.  The order on which marginal utility operates
@@ -691,9 +692,9 @@ class PraxeologyFull extends Praxeology where
                     allocation schedule, distinct from performance).
 
     (MU)-axioms encoded here:
-      * `MU0_func`  : functionality half of (MU0) — each unit
+      * `MU0_func`  : (MU0) functionality — each unit
                       allots to at most one end.
-      * `MU0_feas`  : feasibility half of (MU0) — only feasible
+      * `MU1_feas`  : (MU1) feasibility — only feasible
                       cells are populated (the right-hand side is
                       `Serviceable`, inlined).  Underwrites
                       `lem:served_choice_relevant`.
@@ -726,7 +727,7 @@ class PraxeologyMU extends PraxeologyFull where
 
   MU0_func   : ∀ (a : Actor) (t : Time) (x : Thing) (E F : EndE),
                   Allot a t x E → Allot a t x F → E = F
-  MU0_feas   : ∀ (a : Actor) (t : Time) (x : Thing) (g : Good) (E : EndE),
+  MU1_feas   : ∀ (a : Actor) (t : Time) (x : Thing) (g : Good) (E : EndE),
                   UnitOf x g → Allot a t x E →
                   (∃ (α : Action) (x' : Thing),
                      Avail a α t ∧ EndOf α E ∧ Use α x' ∧ UnitOf x' g)
@@ -801,14 +802,14 @@ theorem servedExcept_served
     is choice-relevant: some available action aims at `E`.
 
     *Proof.*  The witnessing allotment is a populated cell of the
-    schedule; by (MU0) feasibility its end is `g`-serviceable,
+    schedule; by (MU1) feasibility its end is `g`-serviceable,
     and `Serviceable` (Definition `def:serviceable`) exhibits an
     available action with end `E`, i.e. `EndAt a t E`. -/
 theorem served_choice_relevant
     (a : P.Actor) (t : P.Time) (g : P.Good) (E : P.EndE)
     (h : Served a t g E) : EndAt a t E := by
   obtain ⟨x, hxUnit, hxAllot⟩ := h
-  obtain ⟨α, _, hAvail, hEnd, _, _⟩ := P.MU0_feas a t x g E hxUnit hxAllot
+  obtain ⟨α, _, hAvail, hEnd, _, _⟩ := P.MU1_feas a t x g E hxUnit hxAllot
   exact ⟨α, hAvail, hEnd⟩
 
 end PraxeologyMU
@@ -918,8 +919,8 @@ variable [P : PraxeologyMU]
 
     The proof matches Steps 1–3 of the appendix proof
     `app:dmu_proof`: besides the hypotheses it consumes
-    `lem:served_choice_relevant`, the functionality half of
-    (MU0) (which turns non-emptiness (iii) into existence of
+    `lem:served_choice_relevant`, (MU0) functionality
+    (which turns non-emptiness (iii) into existence of
     `E*`), and (O2)/(O3) comparability and transitivity on the
     choice menu.  (MU4) is not invoked --- it is deductively
     engaged only in `DMU_structure` below. -/
@@ -1190,7 +1191,7 @@ theorem WFRank_inj : ∀ E F : WFEnd, WFRank E = WFRank F → E = F := by
     axiom of `PraxeologyMU`, hence of `PraxeologyFull`: the full
     base theory (T0)–(T6), (P1)–(P6), (C1), (O0)–(O4), (S1), the
     production enrichment (E5, idle here), and the (MU)-enrichment
-    (MU0), (MU2), (MU3), and the corrected, relativized (MU4) ---
+    (MU0), (MU1), (MU2), (MU3), and the corrected, relativized (MU4) ---
     all in a single structure.  Lean's acceptance of this
     `instance` block is the integrated base+E5+MU consistency
     witness (Appendix A). -/
@@ -1304,9 +1305,9 @@ instance waterFishModel : PraxeologyMU where
     intro a t x E F hE hF
     cases x <;> cases E <;> cases F <;>
       first | rfl | exact hE.elim | exact hF.elim
-  -- (MU0) feasibility: every populated cell pairs a unit with an
+  -- (MU1) feasibility: every populated cell pairs a unit with an
   -- end its good can serve; the witnesses are the six actions.
-  MU0_feas := by
+  MU1_feas := by
     intro a t x g E hUnit hAllot
     cases x <;> cases g <;> cases E <;>
       first
@@ -1370,7 +1371,7 @@ instance waterFishModel : PraxeologyMU where
 /-- **The old, unrelativized (MU4) fails on the two-good model.**
     Instantiated at `g = water`, `E = Cook`, `F = Eat`: water
     serves Cook, Eat is choice-relevant and higher-ranked
-    (Eat ≻ Cook), yet no unit of water is — or, by (MU0)
+    (Eat ≻ Cook), yet no unit of water is — or, by (MU1)
     feasibility, could be — allotted to Eat.  This is review
     finding #11: the quantifier of the original (MU4) ranged
     over *all* higher-ranked choice-relevant ends instead of the
