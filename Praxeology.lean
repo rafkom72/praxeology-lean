@@ -703,10 +703,11 @@ class PraxeologyFull extends Praxeology where
                       action, then so can any other unit of g.  A
                       substantive modeling commitment, not a
                       bookkeeping convention.
-      * `MU3_scarce`: (MU3) scarcity for good g (cardinal-free) —
-                      some choice-relevant end is not served by g.
-                      Stated via the derived predicates `EndAt`,
-                      `Served`, inlined to avoid a forward reference.
+      * `MU3_scarce`: (MU3) scarcity (cardinal-free) — SOME good is
+                      genuinely scarce: a `Serviceable` end its stock
+                      leaves unserved.  Existential over goods and over
+                      g-serviceable ends; the (MU)-level counterpart of
+                      (S1).  `Serviceable`/`Served` inlined.
       * `MU4_top`   : (MU4) preference-respecting allocation — the
                       served set is a top-segment of the
                       *g-serviceable* choice-relevant ends under
@@ -737,13 +738,15 @@ class PraxeologyMU extends PraxeologyFull where
                   UnitOf x g → UnitOf y g →
                   (∃ α : Action, Avail a α t ∧ EndOf α E ∧ Use α x) →
                   (∃ β : Action, Avail a β t ∧ EndOf β E ∧ Use β y)
-  -- (MU3) Scarcity for good g (cardinal-free): some choice-relevant
-  -- end goes unserved by g.  `EndAt`/`Served` are inlined (they are
-  -- defined in `namespace PraxeologyMU` below, after the class).
-  MU3_scarce : ∀ (a : Actor) (t : Time) (g : Good),
-                  ∃ F : EndE,
-                    (∃ α : Action, Avail a α t ∧ EndOf α F) ∧
-                    ¬ (∃ x : Thing, UnitOf x g ∧ Allot a t x F)
+  -- (MU3) Scarcity (cardinal-free): SOME good is genuinely scarce —
+  -- it has a `Serviceable` end its stock leaves unserved.  Existential
+  -- over goods (not every good need be scarce) and over g-serviceable
+  -- ends (not all choice-relevant ends); the (MU)-level counterpart of
+  -- (S1).  `Serviceable`/`Served` are inlined.
+  MU3_scarce : ∃ (a : Actor) (t : Time) (g : Good) (F : EndE),
+                  (∃ (α : Action) (x : Thing),
+                     Avail a α t ∧ EndOf α F ∧ Use α x ∧ UnitOf x g) ∧
+                  ¬ (∃ x : Thing, UnitOf x g ∧ Allot a t x F)
   MU4_top    : ∀ (a : Actor) (t : Time) (g : Good) (E F : EndE),
                   (∃ x : Thing, UnitOf x g ∧ Allot a t x E) →
                   (∃ α : Action, Avail a α t ∧ EndOf α F) →
@@ -1328,18 +1331,15 @@ instance waterFishModel : PraxeologyMU where
     show WFUnitOf y (WFGoodOf α)
     cases α <;> cases x <;> cases y <;> cases g <;>
       first | trivial | exact hx.elim | exact hy.elim | exact huse.elim
-  -- (MU3) Scarcity: water leaves Garden unserved; fish leaves
-  -- Drink unserved.  Both are choice-relevant (available actions
-  -- target them).
-  MU3_scarce := by
-    intro a t g
-    cases g
-    · exact ⟨.garden, ⟨.waterGarden, trivial, trivial⟩,
-            by rintro ⟨x, hx, ha⟩
-               cases x <;> first | exact hx.elim | exact ha.elim⟩
-    · exact ⟨.drink, ⟨.drinkWater, trivial, trivial⟩,
-            by rintro ⟨x, hx, ha⟩
-               cases x <;> first | exact hx.elim | exact ha.elim⟩
+  -- (MU3) Scarcity: water is genuinely scarce — Garden is
+  -- water-serviceable (waterGarden uses a water unit) yet no water
+  -- unit is allotted to it.  One scarce good witnesses the existential
+  -- (fish, which serves all its serviceable ends, need not).
+  MU3_scarce :=
+    ⟨.robinson, 0, .water, .garden,
+     ⟨.waterGarden, .w1, trivial, trivial, trivial, trivial⟩,
+     by rintro ⟨x, hx, ha⟩
+        cases x <;> first | exact hx.elim | exact ha.elim⟩
   -- (MU4) relativized top-segment, verified good by good:
   --   water's served set {Drink, Cook, Wash} is a top-segment of
   --   the water-serviceable ends {Drink, Cook, Wash, Garden};
