@@ -1078,19 +1078,19 @@ end PraxeologyMU
 
 /-! Concrete `PraxeologyMU` instance: the "two-good allotment
     schedule" Crusoe box accompanying (MU4) in §3.2 of the
-    Foundations paper.  Robinson holds four units w1–w4 of the
-    good Water and three units f1–f3 of the good Fish, with six
+    Foundations paper.  Robinson holds three units w1–w3 of the
+    good Water and two units f1–f2 of the good Fish, with six
     choice-relevant ends ranked
 
         Drink ≻ Eat ≻ Cook ≻ Store ≻ Wash ≻ Garden.
 
     Water can serve Drink, Cook, Wash, Garden; fish can serve
-    Eat, Store.  The allotment schedule (one cell per unit):
+    Eat, Store.  The allotment schedule (one cell per unit, one
+    unit per end):
 
         w1 → Drink          f1 → Eat
-        w2 → Cook           f2 → Eat
-        w3 → Cook           f3 → Store
-        w4 → Wash           (Garden unserved — an (MU3) witness)
+        w2 → Cook           f2 → Store
+        w3 → Wash           (Garden unserved — an (MU3) witness)
 
     The two goods *alternate* down the single value scale —
     water, fish, water, fish, water — which is exactly the case
@@ -1116,7 +1116,7 @@ inductive WFEnd : Type
   deriving DecidableEq
 
 inductive WFThing : Type
-  | w1 | w2 | w3 | w4 | f1 | f2 | f3
+  | w1 | w2 | w3 | f1 | f2
   deriving DecidableEq
 
 inductive WFGood : Type | water | fishG
@@ -1153,8 +1153,8 @@ def WFGoodOf : WFAction → WFGood
 
 /-- Units of the two goods. -/
 def WFUnitOf : WFThing → WFGood → Prop
-  | .w1, .water | .w2, .water | .w3, .water | .w4, .water => True
-  | .f1, .fishG | .f2, .fishG | .f3, .fishG => True
+  | .w1, .water | .w2, .water | .w3, .water => True
+  | .f1, .fishG | .f2, .fishG => True
   | _, _ => False
 
 /-- Use: each action employs *every* unit of its good.  This is
@@ -1163,17 +1163,15 @@ def WFUnitOf : WFThing → WFGood → Prop
     a second water unit could not then serve a water-served end. -/
 def WFUse (α : WFAction) (x : WFThing) : Prop := WFUnitOf x (WFGoodOf α)
 
-/-- The allotment schedule of the Crusoe box: seven cells,
-    constant over time.  Eat and Cook are multi-unit ends
-    (two cells each); Garden is unserved. -/
+/-- The allotment schedule of the Crusoe box: five cells,
+    constant over time.  Each served end takes exactly one unit
+    (strict ladder); Garden is unserved. -/
 def WFAllot : WFActor → Nat → WFThing → WFEnd → Prop
   | _, _, .w1, .drink => True
   | _, _, .w2, .cook  => True
-  | _, _, .w3, .cook  => True
-  | _, _, .w4, .wash  => True
+  | _, _, .w3, .wash  => True
   | _, _, .f1, .eat   => True
-  | _, _, .f2, .eat   => True
-  | _, _, .f3, .store => True
+  | _, _, .f2, .store => True
   | _, _, _, _ => False
 
 /-- Rank on the single value scale (0 = most preferred):
@@ -1319,8 +1317,8 @@ instance waterFishModel : PraxeologyMU where
       | exact ⟨.drinkWater,    .w1, trivial, trivial, trivial, trivial⟩
       | exact ⟨.eatFish,       .f1, trivial, trivial, trivial, trivial⟩
       | exact ⟨.cookWithWater, .w2, trivial, trivial, trivial, trivial⟩
-      | exact ⟨.storeFish,     .f3, trivial, trivial, trivial, trivial⟩
-      | exact ⟨.washWithWater, .w4, trivial, trivial, trivial, trivial⟩
+      | exact ⟨.storeFish,     .f2, trivial, trivial, trivial, trivial⟩
+      | exact ⟨.washWithWater, .w3, trivial, trivial, trivial, trivial⟩
   -- (MU2) Homogeneity: if α serves E using unit x of g, then α
   -- serves E using any other unit y of g — because `WFUse` employs
   -- every unit of the action's good (β := α).
@@ -1355,9 +1353,9 @@ instance waterFishModel : PraxeologyMU where
       first
       | exact ⟨.w1, trivial, trivial⟩
       | exact ⟨.w2, trivial, trivial⟩
-      | exact ⟨.w4, trivial, trivial⟩
+      | exact ⟨.w3, trivial, trivial⟩
       | exact ⟨.f1, trivial, trivial⟩
-      | exact ⟨.f3, trivial, trivial⟩
+      | exact ⟨.f2, trivial, trivial⟩
       | (obtain ⟨α, x, _, hEnd, hUse, hUnit⟩ := hServiceable
          cases α <;> cases x <;>
            first | exact hEnd.elim | exact hUse.elim | exact hUnit.elim)
@@ -1397,7 +1395,7 @@ example :
   cases x <;> first | exact hUnit.elim | exact hAllot.elim
 
 /-- **DMU applied in the two-good model.**  Water's marginal end
-    is Wash, served uniquely by w4.  Removing w4 leaves the
+    is Wash, served uniquely by w3.  Removing w3 leaves the
     reduced water-served set {Drink, Cook}; the theorem derives
     its marginal end E* and concludes E* ≻ Wash (in fact
     E* = Cook).  All three hypotheses and the finite menu are
@@ -1405,11 +1403,11 @@ example :
 example :
     ∃ E_star : WFEnd,
       @PraxeologyMU.ServedExcept waterFishModel
-        .robinson (0 : Nat) .water .w4 E_star ∧
+        .robinson (0 : Nat) .water .w3 E_star ∧
       WFRank E_star < WFRank .wash := by
   obtain ⟨E_star, ⟨hServed, _⟩, _, hPref⟩ :=
-    @PraxeologyMU.DMU waterFishModel .robinson (0 : Nat) .water .w4 .wash
-      -- setup: w4 is a unit of water, allotted to Wash,
+    @PraxeologyMU.DMU waterFishModel .robinson (0 : Nat) .water .w3 .wash
+      -- setup: w3 is a unit of water, allotted to Wash,
       -- and Wash is choice-relevant
       trivial trivial ⟨.washWithWater, trivial, trivial⟩
       -- finiteness: the six-end menu covers the choice-relevant ends
@@ -1422,7 +1420,7 @@ example :
           · exact .tail _ (.tail _ (.tail _ (.head _)))
           · exact .tail _ (.tail _ (.tail _ (.tail _ (.head _))))
           · exact .tail _ (.tail _ (.tail _ (.tail _ (.tail _ (.head _))))))
-      -- (i) uniqueness: only w4 is allotted to Wash
+      -- (i) uniqueness: only w3 is allotted to Wash
       (by intro x h₁ h₂
           cases x <;> first | rfl | exact h₁.elim | exact h₂.elim)
       -- (ii) marginality: every water-served end is ≻ Wash or = Wash
