@@ -55,9 +55,37 @@ If you use this formalization in academic work, please cite the accompanying pap
 }
 ```
 
+## A `mypy` companion (Curry–Howard)
+
+Three small Python files ship alongside the Lean development and make
+the same point for readers more at home with statically typed
+programming.  Under the Curry–Howard correspondence a type is a
+proposition and a well-typed program is its proof, so **a proof error
+and a type error are the same kind of object**:
+
+- [`true_theorem.py`](true_theorem.py) — the identity `P → P`, which
+  **type-checks** (a valid implication).
+- [`false_theorem.py`](false_theorem.py) — a bogus `P → Q` for
+  arbitrary `P, Q`, which **fails** to type-check (an invalid
+  implication has no proof).
+- [`chain.py`](chain.py) — composition `(P → Q) → (Q → R) → (P → R)`;
+  the well-typed call checks, the deliberately ill-typed calls error.
+
+Run with any recent `mypy`:
+
+```bash
+mypy true_theorem.py    # passes
+mypy false_theorem.py   # type error
+mypy chain.py           # good call passes; bad calls error
+```
+
+It is the same mechanism by which Lean validates the praxeological
+theorems above — a valid theorem is accepted, an impossibility is a
+non-typable program — in a vocabulary many readers already know.
+
 ## License
 
-The Lean code in this repository is released under the MIT License — see [`LICENSE`](LICENSE).
+The Lean and Python code in this repository is released under the MIT License — see [`LICENSE`](LICENSE).
 
 ## Authors
 

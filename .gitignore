@@ -11,3 +11,7 @@ lakefile.olean
 
 # macOS
 .DS_Store
+
+# Python / mypy
+__pycache__/
+.mypy_cache/
